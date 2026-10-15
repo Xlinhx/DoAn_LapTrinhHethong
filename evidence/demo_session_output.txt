@@ -1,0 +1,88 @@
+======================================================================
+  DEMO THỰC TẾ TRÊN UBUNTU 24.04 WSL2 - ĐỀ TÀI 17 (myls -a -l -R -S)
+  Kernel : Linux 6.18.33.2-microsoft-standard-WSL2
+  GCC    : gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+======================================================================
+
+$ ./myls
+----------------------------------------------------------------------
+config_medium.cfg
+dataset_large.bin
+docs_sub
+latest_data.lnk
+main_sample.c
+src_module
+
+$ ./myls -a
+----------------------------------------------------------------------
+.
+..
+.env.hidden
+config_medium.cfg
+dataset_large.bin
+docs_sub
+latest_data.lnk
+main_sample.c
+src_module
+
+$ ./myls -l
+----------------------------------------------------------------------
+total 24
+-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper 1024 Oct 15 18:41 config_medium.cfg
+-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper 8192 Oct 15 18:41 dataset_large.bin
+drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 docs_sub
+lrwxrwxrwx 1 linhnxdeveloper linhnxdeveloper   17 Oct 15 18:41 latest_data.lnk -> dataset_large.bin
+-rwxr-xr-x 1 linhnxdeveloper linhnxdeveloper   29 Oct 15 18:41 main_sample.c
+drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 src_module
+
+$ ./myls -R
+----------------------------------------------------------------------
+.:
+config_medium.cfg
+dataset_large.bin
+docs_sub
+latest_data.lnk
+main_sample.c
+src_module
+
+./docs_sub:
+guide.md
+
+./src_module:
+engine.o
+
+$ ./myls -S
+----------------------------------------------------------------------
+dataset_large.bin
+docs_sub
+src_module
+config_medium.cfg
+main_sample.c
+latest_data.lnk
+
+$ ./myls -alRS
+----------------------------------------------------------------------
+.:
+total 36
+-rw-r--r--  1 linhnxdeveloper linhnxdeveloper 8192 Oct 15 18:41 dataset_large.bin
+drwx------  4 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 .
+drwxrwxrwt 10 root            root            4096 Oct 15 18:41 ..
+drwxr-xr-x  2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 docs_sub
+drwxr-xr-x  2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 src_module
+-rw-r--r--  1 linhnxdeveloper linhnxdeveloper 1024 Oct 15 18:41 config_medium.cfg
+-rwxr-xr-x  1 linhnxdeveloper linhnxdeveloper   29 Oct 15 18:41 main_sample.c
+-rw-r--r--  1 linhnxdeveloper linhnxdeveloper   22 Oct 15 18:41 .env.hidden
+lrwxrwxrwx  1 linhnxdeveloper linhnxdeveloper   17 Oct 15 18:41 latest_data.lnk -> dataset_large.bin
+
+./docs_sub:
+total 12
+drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 .
+drwx------ 4 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 ..
+-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper   13 Oct 15 18:41 guide.md
+
+./src_module:
+total 12
+drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 .
+drwx------ 4 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 ..
+-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 engine.o
+

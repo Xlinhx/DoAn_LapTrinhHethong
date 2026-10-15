@@ -1,0 +1,22 @@
+======================================================================
+  VKU SYSTEM PROGRAMMING - TOPIC 17: AUTOMATED TEST SUITE (myls)
+  Fixture Directory (Native Linux FS): /tmp/myls_test_d8DSGc
+======================================================================
+  [PASS] Test 01: Default listing (./myls)
+  [PASS] Test 02: Show hidden entries (-a)
+  [PASS] Test 03: Long listing format with permissions/time (-l)
+  [PASS] Test 04: Recursive directory traversal (-R)
+  [PASS] Test 05: Sort by file size descending + tie-break (-S)
+  [PASS] Test 06: Combined flags: Long + All (-la)
+  [PASS] Test 07: Combined flags: Long + Size sort (-lS)
+  [PASS] Test 08: Combined flags: Long + Recursive (-lR)
+  [PASS] Test 09: Combined flags: All + Recursive (-aR)
+  [PASS] Test 10: Full combination: -alRS
+  [PASS] Test 11: Multiple mixed CLI arguments (files + dirs)
+  [PASS] Test 12: Symlink to directory: -l vs non -l
+  [PASS] Test 13: Non-existent path returns exit status 1 and stderr message
+  [PASS] Test 14: Unreadable directory (chmod 000) handled gracefully without crash
+  [PASS] Test 15: Invalid option (-z) rejected with exit status 2
+----------------------------------------------------------------------
+  SUMMARY: 15 / 15 TESTS PASSED (0 FAILED)
+======================================================================
