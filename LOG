@@ -1,0 +1,70 @@
+commit abbc9b374efa2e4e4dd8ae4cf6259c0be204385e (HEAD -> main, tag: v1.0.0-submission)
+Author: Nguyễn Xuân Lĩnh <linhnxdeveloper@gmail.com>
+Date:   Thu Oct 15 19:01:55 2026 +0000
+
+    chore(release): export git commit history to LOG for final submission
+
+ LOG | 70 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 70 insertions(+)
+
+commit 0e6db36fa387408cc4878d7af4d322440c804a41
+Author: Nguyễn Xuân Lĩnh <linhnxdeveloper@gmail.com>
+Date:   Fri Oct 16 02:00:58 2026 +0700
+
+    docs(report,slides): add sequential technical docs, VKU report (DOCX/PDF), and 12-layout light slides
+
+ CHECKLIST.md                             |   43 +
+ README.md                                |  187 +++++
+ docs/BaoCao.docx                         |  Bin 0 -> 2141741 bytes
+ docs/BaoCao.pdf                          |  Bin 0 -> 818485 bytes
+ docs/Slides.pptx                         |  Bin 0 -> 3880072 bytes
+ docs/TECHNICAL_DEEP_DIVE.md              |  156 ++++
+ docs/assets/cutouts/bitmask_decoder.png  |  Bin 0 -> 693869 bytes
+ docs/assets/cutouts/dentry_magnifier.png |  Bin 0 -> 825711 bytes
+ docs/assets/cutouts/hero_inode_tree.png  |  Bin 0 -> 1023439 bytes
+ docs/assets/cutouts/recursion_shield.png |  Bin 0 -> 1122779 bytes
+ evidence/demo_basic_flags_capture.png    |  Bin 0 -> 80614 bytes
+ evidence/demo_combined_alRS_capture.png  |  Bin 0 -> 93865 bytes
+ evidence/test_suite_capture.png          |  Bin 0 -> 101623 bytes
+ scripts/build_slides.py                  | 1325 ++++++++++++++++++++++++++++++
+ scripts/build_vku_report.py              |  639 ++++++++++++++
+ scripts/cutout_assets.py                 |   93 +++
+ scripts/generate_evidence_images.py      |  144 ++++
+ 17 files changed, 2587 insertions(+)
+
+commit 0fa129eff1a081fceeed6c2395f1db1ba0df2470
+Author: Nguyễn Xuân Lĩnh <linhnxdeveloper@gmail.com>
+Date:   Fri Oct 16 01:42:49 2026 +0700
+
+    test(myls): add 15-case automated test suite against GNU ls and WSL2 evidence
+
+ evidence/demo_session_output.txt     |  88 ++++++++++++++++++++
+ evidence/memory_sanitizer_report.txt |   1 +
+ evidence/test_suite_report.txt       |  22 +++++
+ tests/run_demo.sh                    |  51 ++++++++++++
+ tests/run_tests.sh                   | 155 +++++++++++++++++++++++++++++++++++
+ 5 files changed, 317 insertions(+)
+
+commit 1362e93cd58731cebdd05b92c03fa702f8be7762
+Author: Nguyễn Xuân Lĩnh <linhnxdeveloper@gmail.com>
+Date:   Fri Oct 16 01:42:49 2026 +0700
+
+    feat(myls): implement POSIX ls with -a, -l, -R, -S across 5 C modules
+
+ include/myls.h  |  96 +++++++++++++++++++++
+ src/directory.c | 238 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/display.c   | 254 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/main.c      | 130 +++++++++++++++++++++++++++++
+ src/options.c   |  90 ++++++++++++++++++++
+ src/sorting.c   |  60 +++++++++++++
+ 6 files changed, 868 insertions(+)
+
+commit f513000b9c9b265c929c1fda3f1dfec9e6407b16
+Author: Nguyễn Xuân Lĩnh <linhnxdeveloper@gmail.com>
+Date:   Fri Oct 16 01:42:49 2026 +0700
+
+    chore(setup): initialize POSIX C project structure, Makefile, and .gitignore
+
+ .gitignore | 19 ++++++++++++++++++
+ Makefile   | 67 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 86 insertions(+)
