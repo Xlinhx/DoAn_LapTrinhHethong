@@ -1,0 +1,19 @@
+# Build artifacts
+build/
+*.o
+*.out
+myls
+
+# Temporary & test artifacts
+*.tmp
+*.swp
+*~
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+scripts/__pycache__/
+
+# Generated submission archives (kept clean in git, generated via make dist)
+*.tar
+*.tar.gz
