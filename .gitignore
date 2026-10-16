@@ -3,6 +3,7 @@ build/
 *.o
 *.out
 myls
+myls_sanitize
 
 # Temporary & test artifacts
 *.tmp

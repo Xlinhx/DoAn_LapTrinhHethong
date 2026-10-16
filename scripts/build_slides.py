@@ -1,1325 +1,360 @@
-#!/usr/bin/env python3
+"""Editable visual defense deck: 16 main slides (~18 min incl. demo), 6 backups.
+Evidence comes from collect_evidence.py; render with export_office.ps1 for visual QA.
 """
-scripts/build_slides.py
-Thiết kế bộ Slide thuyết trình Đồ án Lập trình Hệ thống (Đề tài 17: myls -a -l -R -S)
-Lưu tại: docs/Slides.pptx và xuất ảnh từng slide ra docs/slide_previews/ để review thị giác.
-
-Nguyên tắc thiết kế (Tuân thủ yêu cầu người dùng & slide-maker):
-1. NỀN SÁNG 100% (Light Editorial Theme: Warm Ivory #FAF8F5 / Soft Alabaster #F4F7FB),
-   tuyệt đối không dùng slide nền tối.
-2. 12 SLIDES = 12 LAYOUT KHÁC NHAU HOÀN TOÀN (Không lặp lại bố cục nhàm chán).
-3. Ít chữ, cô đọng, giải thích đánh số tuần tự "Tại sao A phải B", chữ và ảnh bổ trợ chặt chẽ.
-4. Sử dụng các vật thể 3D minh họa đã tách nền trong suốt (transparent PNG) trong docs/assets/cutouts/
-   và ảnh chụp kết quả chạy thực tế trong evidence/.
-"""
-
 from pathlib import Path
+import re
 from pptx import Presentation
 from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
-from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
-from pptx.util import Inches, Pt
+from pptx.enum.shapes import MSO_SHAPE as SH, MSO_CONNECTOR
+from pptx.enum.text import PP_ALIGN
+from pptx.util import Inches as I, Pt
+from pptx.oxml.ns import qn
+from PIL import Image
+from metadata_loader import load_project_metadata, load_test_results
 
-ROOT = Path(__file__).resolve().parent.parent
-DOCS_DIR = ROOT / "docs"
-CUTOUTS_DIR = DOCS_DIR / "assets" / "cutouts"
-EVIDENCE_DIR = ROOT / "evidence"
-PREVIEW_DIR = DOCS_DIR / "slide_previews"
-
-# Bảng màu Light Editorial Palette (Sáng, rõ nét, tương phản cao)
-BG_WARM_IVORY = RGBColor(0xFA, 0xF8, 0xF5)
-BG_SOFT_BLUE = RGBColor(0xF4, 0xF7, 0xFB)
-SURFACE_WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-SURFACE_TINT_BLUE = RGBColor(0xEF, 0xF6, 0xFF)
-SURFACE_TINT_AMBER = RGBColor(0xFF, 0xFB, 0xEB)
-SURFACE_TINT_GREEN = RGBColor(0xEC, 0xFD, 0xF5)
-SURFACE_TINT_RED = RGBColor(0xFE, 0xF2, 0xF2)
-SURFACE_SLATE = RGBColor(0xF1, 0xF5, 0xF9)
-
-INK_NAVY = RGBColor(0x0F, 0x17, 0x2A)
-INK_BODY = RGBColor(0x33, 0x41, 0x55)
-INK_MUTED = RGBColor(0x64, 0x74, 0x8B)
-INK_WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-
-ACCENT_BLUE = RGBColor(0x1E, 0x40, 0xAF)
-ACCENT_BLUE_LIGHT = RGBColor(0x3B, 0x82, 0xF6)
-ACCENT_AMBER = RGBColor(0xD9, 0x77, 0x06)
-ACCENT_GREEN = RGBColor(0x05, 0x96, 0x69)
-ACCENT_RED = RGBColor(0xDC, 0x26, 0x26)
-ACCENT_PURPLE = RGBColor(0x6D, 0x28, 0xD9)
-BORDER_LIGHT = RGBColor(0xCB, 0xD5, 0xE1)
-
-FONT_SANS = "Segoe UI"
-FONT_MONO = "Consolas"
+ROOT=Path(__file__).resolve().parent.parent
+INK,GRAY,PAPER,TEAL,PALE,WHITE,GOLD,RED='364653','5B6870','F7F3EA','456B88','E6EDF1','FFFDFA','927134','A75445'
+SAGE,SOFT_SAGE,CLAY,BLUSH,LILAC,RULE='5C7359','E7EDE1','9B624B','F1E3D8','EAE6EF','D3D7D2'
+ART=ROOT/'docs/assets/illustrations'
+prs=Presentation(); prs.slide_width=I(13.333333); prs.slide_height=I(7.5)
+meta=load_project_metadata(); data=load_test_results()
 
 
-def set_slide_bg(slide, color: RGBColor):
-    bg = slide.background
-    fill = bg.fill
-    fill.solid()
-    fill.fore_color.rgb = color
+def box(s,x,y,w,h,fill=WHITE,border=None,kind=SH.RECTANGLE):
+    q=s.shapes.add_shape(kind,I(x),I(y),I(w),I(h)); q.fill.solid(); q.fill.fore_color.rgb=RGBColor.from_string(fill)
+    q.line.fill.background()
+    style=q._element.find(qn('p:style'))
+    if style is not None: q._element.remove(style)
+    if border: q.line.color.rgb=RGBColor.from_string(border); q.line.width=Pt(1)
+    return q
 
 
-def add_box(
-    slide,
-    left: float,
-    top: float,
-    width: float,
-    height: float,
-    fill_color: RGBColor | None = SURFACE_WHITE,
-    border_color: RGBColor | None = BORDER_LIGHT,
-    border_pt: float = 1.0,
-    shape_type=MSO_SHAPE.ROUNDED_RECTANGLE,
-    corner_radius: float = 0.04,
-):
-    sh = slide.shapes.add_shape(
-        shape_type, Inches(left), Inches(top), Inches(width), Inches(height)
-    )
-    if shape_type == MSO_SHAPE.ROUNDED_RECTANGLE and len(sh.adjustments) > 0:
-        sh.adjustments[0] = corner_radius
-    if fill_color is not None:
-        sh.fill.solid()
-        sh.fill.fore_color.rgb = fill_color
+def text(s,x,y,w,h,t,size=24,c=INK,bold=False,mono=False,center=False):
+    q=s.shapes.add_textbox(I(x),I(y),I(w),I(h)); f=q.text_frame; f.word_wrap=True
+    f.margin_top=f.margin_left=f.margin_right=f.margin_bottom=0
+    for i,row in enumerate(t.split('\n')):
+        p=f.paragraphs[0] if not i else f.add_paragraph(); p.text=row
+        p.font.name='Consolas' if mono else 'Segoe UI'; p.font.size=Pt(size); p.font.bold=bold
+        p.font.color.rgb=RGBColor.from_string(c); p.space_after=Pt(3 if i<len(t.split('\n'))-1 else 0); p.line_spacing=1.1
+        if center: p.alignment=PP_ALIGN.CENTER
+    return q
+
+
+def line(s,x,y,xx,yy,c=TEAL,width=2):
+    q=s.shapes.add_connector(MSO_CONNECTOR.STRAIGHT,I(x),I(y),I(xx),I(yy))
+    q.line.color.rgb=RGBColor.from_string(c); q.line.width=Pt(width)
+    style=q._element.find(qn('p:style'))
+    if style is not None: q._element.remove(style)
+
+
+def arrow(s,x,y,w=.6,c=TEAL,left=False):
+    box(s,x,y,w,.22,c,kind=SH.LEFT_ARROW if left else SH.RIGHT_ARROW)
+
+
+def circle(s,x,y,n,d=.5,c=TEAL):
+    box(s,x,y,d,d,c,kind=SH.OVAL); text(s,x,y+.055,d,.36,str(n),18,WHITE,True,center=True)
+
+
+def folder(s,x,y,w=1,c=TEAL):
+    box(s,x,y,w*.42,.15,c); box(s,x,y+.12,w,.58,c)
+
+
+def file(s,x,y,name,w=2.5):
+    box(s,x,y,w,.64,WHITE,RULE); box(s,x+.12,y+.15,.24,.32,PALE,TEAL)
+    text(s,x+.46,y+.15,w-.55,.4,name,19,mono=True)
+
+
+def terminal(s,x,y,w,h,cmd,rows,size=20):
+    box(s,x,y,w,h,WHITE,RULE)
+    box(s,x,y,w,.65,PALE)
+    text(s,x+.25,y+.15,w-.5,.45,'$ '+cmd,size,TEAL,True,True)
+    body=text(s,x+.25,y+.86,w-.5,h-.96,'\n'.join(rows),size,INK,mono=True)
+    for p in body.text_frame.paragraphs: p.space_after=Pt(0); p.line_spacing=1.05
+
+
+def art(s,name,x,y,w,h,description):
+    """Contain the full generated cutout; labels and evidence stay native."""
+    path=ART/f'{name}.png'
+    with Image.open(path) as im: iw,ih=im.size
+    scale=min(w/iw,h/ih); pw,ph=iw*scale,ih*scale
+    p=s.shapes.add_picture(str(path),I(x+(w-pw)/2),I(y+(h-ph)/2),I(pw),I(ph))
+    p.name='Illustration: '+name
+    p._element._nvXxPr.cNvPr.set('descr','Minh họa tạo bằng imagegen: '+description+' Không phải ảnh chụp hay dữ liệu thực nghiệm.')
+    return p
+
+
+def new(title,sub='',tone=PAPER,backup=False):
+    s=prs.slides.add_slide(prs.slide_layouts[6]); s.background.fill.solid()
+    s.background.fill.fore_color.rgb=RGBColor.from_string(tone)
+    if title: text(s,.82,.47,11.7,.65,title,30,INK,True)
+    if sub: text(s,.85,1.24,11.6,.55,sub,18,GRAY)
+    # Course and institution appear once on the cover. Sources live in notes.
+    line(s,11.77,7.15,12.03,7.15,RULE,1)
+    text(s,12.12,7.02,.45,.3,f'{len(prs.slides):02d}',10,GRAY,center=True)
+    return s
+
+
+def note(s,time,t,source='src/ và include/myls.h'):
+    images=[q.name.removeprefix('Illustration: ') for q in s.shapes if q.name.startswith('Illustration: ')]
+    provenance=('\nMinh họa imagegen (không phải bằng chứng): '+', '.join(images)+'. Prompt gốc: docs/assets/illustrations/manifest.json.') if images else ''
+    s.notes_slide.notes_text_frame.text=f'Thời lượng: {time}.\n{t}\nNguồn: {source}'+provenance
+
+
+def demo(cmd):
+    m=re.search(r'^\$ '+re.escape(cmd)+r'\n(.*?)\n-> Exit code: (\d+)',data['demo_run']['raw_output'],re.M|re.S)
+    if not m: raise ValueError('Missing demo command: '+cmd)
+    return m.group(1).splitlines(),int(m.group(2))
+
+
+# 01 — opening illustration, not an architecture claim.
+s=new('',tone='F2EEE4')
+text(s,.85,.62,6.5,.45,'VKU · Lập trình hệ thống',18,GRAY)
+text(s,.85,1.62,4,.45,'Đề tài 17',22,CLAY,True)
+text(s,.78,2.13,5.9,1.6,'myls',88,INK,True,True)
+text(s,.85,3.78,5.6,1.25,'Cài đặt lệnh ls\nbằng C trên Linux',32)
+for i,(f,c) in enumerate(zip(['-a','-l','-R','-S'],[TEAL,SAGE,CLAY,TEAL])):
+    x=.85+i*1.28; text(s,x,5.65,1,.65,f,32,c,True,True); line(s,x,6.4,x+.72,6.4,c,2)
+art(s,'filesystem_atelier',6.08,1.15,6.75,5.65,'Không gian thư mục và các đường nối phân nhánh.')
+if meta['members']:
+    text(s,.85,6.68,10.8,.35,', '.join(m['name'] for m in meta['members']),15,GRAY)
+note(s,'30 giây','Giới thiệu ba điều cần chứng minh: hành vi đúng, hiểu giao diện hệ thống và kiểm soát tài nguyên. Hình bìa chỉ minh họa. 16 slide chính khoảng 18 phút gồm 3 phút demo; sáu slide sau là dự phòng. Metadata hiện ở chế độ '+meta['mode']+'. Chưa có danh sách nhóm thì không tự gán tên đại diện; phải bổ sung nhóm trước khi nộp.')
+
+# 02 — four decisions.
+s=new('Bốn cờ tác động lên bốn quyết định','Có 2⁴ = 16 tổ hợp, bao gồm cả chế độ mặc định.')
+for i,(f,title,body,api) in enumerate([('-a','CHỌN MỤC','Thêm tên bắt đầu bằng dấu chấm','name[0]'),('-l','CHỌN CÁCH IN','Quyền · owner\nsize · mtime','struct stat'),('-R','CHỌN NƠI ĐẾN','Đi vào thư mục con thật','S_ISDIR'),('-S','CHỌN THỨ TỰ','Size giảm; cùng size thì tên','st_size')]):
+    x=.85+i*3.13; c=[TEAL,SAGE,CLAY,TEAL][i]
+    text(s,x,2.15,1.7,1.0,f,54,c,True,True); line(s,x,3.23,x+2.65,3.23,c,2)
+    if i in (0,1):
+        box(s,x+1.9,2.2,.55,.72,WHITE,c)
+        for k in range(3): line(s,x+2.01,2.39+k*.13,x+2.33,2.39+k*.13,c,1)
+        if not i: box(s,x+1.76,2.13,.18,.18,CLAY,kind=SH.OVAL)
+    elif i==2:
+        folder(s,x+1.9,2.1,.55,c); line(s,x+2.17,2.8,x+2.17,3.02,c,1.2)
+        line(s,x+1.86,3.02,x+2.5,3.02,c,1.2)
     else:
-        sh.fill.background()
-
-    if border_color is not None and border_pt > 0:
-        sh.line.color.rgb = border_color
-        sh.line.width = Pt(border_pt)
-    else:
-        sh.line.fill.background()
-    return sh
-
-
-def add_text(
-    slide,
-    left: float,
-    top: float,
-    width: float,
-    height: float,
-    text: str,
-    font_size: float = 14,
-    bold: bool = False,
-    italic: bool = False,
-    color: RGBColor = INK_NAVY,
-    font_name: str = FONT_SANS,
-    align=PP_ALIGN.LEFT,
-    valign=MSO_ANCHOR.TOP,
-    line_spacing: float = 1.15,
-):
-    tb = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
-    tf = tb.text_frame
-    tf.word_wrap = True
-    tf.vertical_anchor = valign
-    tf.margin_left = Inches(0.04)
-    tf.margin_right = Inches(0.04)
-    tf.margin_top = Inches(0.02)
-    tf.margin_bottom = Inches(0.02)
-
-    lines = text.split("\n")
-    for idx, line in enumerate(lines):
-        p = tf.paragraphs[0] if idx == 0 else tf.add_paragraph()
-        p.alignment = align
-        p.line_spacing = line_spacing
-        p.space_after = Pt(3 if len(lines) > 1 else 0)
-        r = p.add_run()
-        r.text = line
-        r.font.name = font_name
-        r.font.size = Pt(font_size)
-        r.font.bold = bold
-        r.font.italic = italic
-        r.font.color.rgb = color
-    return tb
-
-
-def add_rich_bullets(
-    slide,
-    left: float,
-    top: float,
-    width: float,
-    height: float,
-    items: list[tuple[str, str]],
-    font_size: float = 13.5,
-    lead_color: RGBColor = ACCENT_BLUE,
-    body_color: RGBColor = INK_BODY,
-    space_after_pt: float = 6,
-):
-    tb = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
-    tf = tb.text_frame
-    tf.word_wrap = True
-    tf.margin_left = Inches(0.04)
-    tf.margin_right = Inches(0.04)
-    tf.margin_top = Inches(0.02)
-    tf.margin_bottom = Inches(0.02)
-
-    for idx, (lead, body) in enumerate(items):
-        p = tf.paragraphs[0] if idx == 0 else tf.add_paragraph()
-        p.line_spacing = 1.18
-        p.space_after = Pt(space_after_pt)
-
-        r1 = p.add_run()
-        r1.text = lead
-        r1.font.name = FONT_SANS
-        r1.font.size = Pt(font_size)
-        r1.font.bold = True
-        r1.font.color.rgb = lead_color
-
-        r2 = p.add_run()
-        r2.text = body
-        r2.font.name = FONT_SANS
-        r2.font.size = Pt(font_size)
-        r2.font.bold = False
-        r2.font.color.rgb = body_color
-    return tb
-
-
-def add_header_chrome(
-    slide,
-    slide_num: int,
-    section_tag: str,
-    title: str,
-    subtitle: str,
-    tag_color: RGBColor = ACCENT_BLUE,
-):
-    # Thanh điều hướng phía trên (đủ rộng để luôn nằm trên 1 dòng duy nhất)
-    add_box(
-        slide,
-        0.55,
-        0.34,
-        3.65,
-        0.32,
-        fill_color=tag_color,
-        border_color=None,
-        corner_radius=0.5,
-    )
-    add_text(
-        slide,
-        0.62,
-        0.36,
-        3.50,
-        0.28,
-        f"SLIDE {slide_num:02d}/12  ·  {section_tag}",
-        font_size=9.5,
-        bold=True,
-        color=INK_WHITE,
-        align=PP_ALIGN.CENTER,
-        valign=MSO_ANCHOR.MIDDLE,
-    )
-
-    # Chuỗi tiến trình 4 chặng ở góc phải trên (mỗi pill rộng 1.48 inch, luôn 1 dòng)
-    stages = ["1. Nền tảng", "2. Kiến trúc", "3. Giải phẫu C", "4. Thực nghiệm WSL2"]
-    active_stage = 0 if slide_num <= 3 else (1 if slide_num <= 4 else (2 if slide_num <= 7 else 3))
-    sx = 6.65
-    for idx, st_name in enumerate(stages):
-        is_act = idx == active_stage
-        add_box(
-            slide,
-            sx,
-            0.34,
-            1.48,
-            0.32,
-            fill_color=SURFACE_TINT_BLUE if is_act else SURFACE_WHITE,
-            border_color=ACCENT_BLUE if is_act else BORDER_LIGHT,
-            border_pt=1.5 if is_act else 0.75,
-            corner_radius=0.4,
-        )
-        add_text(
-            slide,
-            sx,
-            0.36,
-            1.48,
-            0.28,
-            st_name,
-            font_size=8.8,
-            bold=is_act,
-            color=ACCENT_BLUE if is_act else INK_MUTED,
-            align=PP_ALIGN.CENTER,
-            valign=MSO_ANCHOR.MIDDLE,
-        )
-        sx += 1.54
-
-    # Tiêu đề chính và phụ đề dẫn nhập
-    add_text(
-        slide,
-        0.55,
-        0.74,
-        12.2,
-        0.48,
-        title,
-        font_size=22,
-        bold=True,
-        color=INK_NAVY,
-    )
-    add_text(
-        slide,
-        0.55,
-        1.18,
-        12.2,
-        0.34,
-        subtitle,
-        font_size=12.5,
-        italic=False,
-        color=INK_MUTED,
-    )
-
-
-def add_picture_contain(slide, img_path: Path, box_l: float, box_t: float, box_w: float, box_h: float):
-    if not img_path.exists():
-        return None
-    from PIL import Image
-
-    with Image.open(img_path) as im:
-        iw, ih = im.size
-    aspect = iw / float(ih)
-    box_aspect = box_w / float(box_h)
-
-    if aspect > box_aspect:
-        w = box_w
-        h = box_w / aspect
-        l = box_l
-        t = box_t + (box_h - h) / 2.0
-    else:
-        h = box_h
-        w = box_h * aspect
-        t = box_t
-        l = box_l + (box_w - w) / 2.0
-
-    return slide.shapes.add_picture(str(img_path), Inches(l), Inches(t), Inches(w), Inches(h))
-
-
-# ==============================================================================
-# SLIDE 1: HERO COVER (Bố cục Bất đối xứng + Vật thể 3D Tách nền Trong suốt)
-# ==============================================================================
-def build_slide_01(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_WARM_IVORY)
-
-    # Vòng tròn trang trí nền sáng phía sau vật thể 3D
-    add_box(
-        slide,
-        7.35,
-        0.65,
-        5.4,
-        5.4,
-        fill_color=SURFACE_TINT_BLUE,
-        border_color=RGBColor(0xBF, 0xDB, 0xFE),
-        border_pt=1.5,
-        shape_type=MSO_SHAPE.OVAL,
-    )
-    add_box(
-        slide,
-        8.05,
-        1.35,
-        4.0,
-        4.0,
-        fill_color=SURFACE_WHITE,
-        border_color=RGBColor(0xDB, 0xE9, 0xFE),
-        border_pt=1.0,
-        shape_type=MSO_SHAPE.OVAL,
-    )
-
-    # Thanh accent dọc bên trái
-    add_box(
-        slide,
-        0.60,
-        0.75,
-        0.10,
-        5.8,
-        fill_color=ACCENT_BLUE,
-        border_color=None,
-        shape_type=MSO_SHAPE.RECTANGLE,
-    )
-
-    # Huy hiệu trường & môn học
-    add_box(
-        slide,
-        0.90,
-        0.75,
-        5.2,
-        0.38,
-        fill_color=SURFACE_TINT_BLUE,
-        border_color=ACCENT_BLUE,
-        border_pt=1.0,
-        corner_radius=0.5,
-    )
-    add_text(
-        slide,
-        1.02,
-        0.79,
-        5.0,
-        0.30,
-        "VKU · HỌC PHẦN LẬP TRÌNH HỆ THỐNG · ĐỀ TÀI 17",
-        font_size=10.5,
-        bold=True,
-        color=ACCENT_BLUE,
-        valign=MSO_ANCHOR.MIDDLE,
-    )
-
-    add_text(
-        slide,
-        0.90,
-        1.28,
-        6.3,
-        1.75,
-        "Tự Cài Đặt Lệnh ls\nVới -a, -l, -R, -S\nBằng POSIX C Trên Linux",
-        font_size=30,
-        bold=True,
-        color=INK_NAVY,
-        line_spacing=1.08,
-    )
-
-    add_text(
-        slide,
-        0.90,
-        3.22,
-        6.1,
-        0.85,
-        "Giải phẫu từ bản chất Dentry & Inode trong nhân Linux đến kiến trúc 5 module C chuẩn POSIX.1-2008, vượt qua 15/15 kịch bản đối chiếu trực tiếp với GNU ls trên Ubuntu 24.04 WSL2.",
-        font_size=13.0,
-        color=INK_BODY,
-        line_spacing=1.22,
-    )
-
-    # 3 Thẻ thông tin nhanh ở góc dưới trái
-    cards = [
-        ("SINH VIÊN THỰC HIỆN", "Nguyễn Xuân Lĩnh", ACCENT_BLUE, SURFACE_WHITE),
-        ("CHUẨN BIÊN DỊCH", "C11 · POSIX.1-2008\nGCC 13.3 (Ubuntu WSL2)", ACCENT_AMBER, SURFACE_WHITE),
-        ("KIỂM THỬ THỰC NGHIỆM", "15/15 PASS (GNU ls)\n0 Memory Leaks", ACCENT_GREEN, SURFACE_WHITE),
-    ]
-    cx = 0.90
-    for label, val, col, bg in cards:
-        add_box(slide, cx, 4.30, 2.02, 1.08, fill_color=bg, border_color=BORDER_LIGHT, border_pt=1.0, corner_radius=0.08)
-        add_box(slide, cx, 4.30, 2.02, 0.08, fill_color=col, border_color=None, shape_type=MSO_SHAPE.RECTANGLE)
-        add_text(slide, cx + 0.12, 4.42, 1.80, 0.24, label, font_size=8.5, bold=True, color=col)
-        add_text(slide, cx + 0.12, 4.68, 1.80, 0.62, val, font_size=10.8, bold=True, color=INK_NAVY, line_spacing=1.12)
-        cx += 2.14
-
-    # Thanh repo GitHub phía dưới
-    add_box(
-        slide,
-        0.90,
-        5.62,
-        6.30,
-        0.58,
-        fill_color=SURFACE_WHITE,
-        border_color=BORDER_LIGHT,
-        border_pt=1.0,
-        corner_radius=0.12,
-    )
-    add_text(
-        slide,
-        1.08,
-        5.73,
-        6.0,
-        0.36,
-        "GitHub Repository:  https://github.com/Xlinhx/DoAn_LapTrinhHethong",
-        font_size=11.5,
-        bold=True,
-        font_name=FONT_MONO,
-        color=ACCENT_BLUE,
-    )
-
-    # Vật thể 3D tách nền trong suốt bên phải
-    add_picture_contain(slide, CUTOUTS_DIR / "hero_inode_tree.png", 7.45, 0.78, 5.2, 5.1)
-
-    # Nhãn chú thích nổi dưới hình minh họa
-    add_box(
-        slide,
-        7.85,
-        6.05,
-        4.45,
-        0.52,
-        fill_color=SURFACE_WHITE,
-        border_color=ACCENT_BLUE,
-        border_pt=1.2,
-        corner_radius=0.2,
-    )
-    add_text(
-        slide,
-        7.95,
-        6.13,
-        4.25,
-        0.36,
-        "Mô hình Cây thư mục (Dentry) liên kết trực tiếp Bảng Inode",
-        font_size=10.5,
-        bold=True,
-        color=INK_NAVY,
-        align=PP_ALIGN.CENTER,
-    )
-
-
-# ==============================================================================
-# SLIDE 2: BÀI TOÁN & 4 TRỤ CỘT (Layout Top Contrast Banner + 2x2 Bento Grid)
-# ==============================================================================
-def build_slide_02(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_SOFT_BLUE)
-    add_header_chrome(
-        slide,
-        2,
-        "PHẦN 1 · BÀI TOÁN & YÊU CẦU",
-        "1. Tại Sao Phải Tự Viết myls Bằng System Calls Thay Vì Gọi system(\"ls\")?",
-        "Đi từ yêu cầu đề tài 17 đến 4 cờ cốt lõi (-a, -l, -R, -S) giao tiếp trực tiếp với nhân Linux.",
-    )
-
-    # Banner đối chiếu ở trên: Cách làm sai (Shell Wrapper) vs Cách làm đúng (POSIX System Calls)
-    add_box(slide, 0.55, 1.65, 5.95, 1.25, fill_color=SURFACE_TINT_RED, border_color=ACCENT_RED, border_pt=1.2, corner_radius=0.06)
-    add_text(slide, 0.75, 1.75, 5.6, 0.30, "CÁCH LÀM SAI TRONG MÔN LẬP TRÌNH HỆ THỐNG", font_size=11, bold=True, color=ACCENT_RED)
-    add_text(
-        slide,
-        0.75,
-        2.06,
-        5.6,
-        0.72,
-        "Gọi hàm system(\"ls -alRS\") hoặc popen(): Chỉ nhờ Shell chạy hộ chương trình có sẵn của OS, không đụng tới Inode hay cây thư mục (mất điểm phần thuật toán).",
-        font_size=12,
-        color=INK_BODY,
-    )
-
-    add_box(slide, 6.80, 1.65, 5.95, 1.25, fill_color=SURFACE_TINT_GREEN, border_color=ACCENT_GREEN, border_pt=1.2, corner_radius=0.06)
-    add_text(slide, 7.00, 1.75, 5.6, 0.30, "GIẢI PHÁP CỦA DỰ ÁN: 100% POSIX SYSTEM CALLS & LIBC", font_size=11, bold=True, color=ACCENT_GREEN)
-    add_text(
-        slide,
-        7.00,
-        2.06,
-        5.6,
-        0.72,
-        "Tự cài đặt toàn bộ bằng opendir(), readdir(), closedir(), lstat(), readlink(), getpwuid(), getgrgid(), localtime_r() và qsort() chuẩn POSIX.1-2008.",
-        font_size=12,
-        color=INK_BODY,
-    )
-
-    # 2x2 Bento Grid cho 4 cờ -a, -l, -R, -S
-    bento = [
-        (
-            0.55,
-            3.12,
-            "-a",
-            "Hiển Thị Tệp Ẩn (All Entries)",
-            ACCENT_BLUE,
-            SURFACE_TINT_BLUE,
-            [
-                ("• Quy ước Linux: ", "Mọi tệp bắt đầu bằng dấu '.' (như '.', '..', '.env') là tệp ẩn."),
-                ("• Cơ chế cài đặt: ", "Mặc định bỏ qua d_name[0] == '.'; khi bật -a thì nạp toàn bộ vào danh sách."),
-            ],
-        ),
-        (
-            6.80,
-            3.12,
-            "-l",
-            "Danh Sách Chi Tiết (Long Format)",
-            ACCENT_AMBER,
-            SURFACE_TINT_AMBER,
-            [
-                ("• Giải mã Inode: ", "10 ký tự quyền (rwx + SUID/SGID/Sticky), số hard link, Owner, Group, Size."),
-                ("• Chuẩn GNU ls: ", "In 'total = sum(st_blocks)/2', quy tắc mtime 6 tháng và đọc đích Symlink '->'."),
-            ],
-        ),
-        (
-            0.55,
-            5.15,
-            "-R",
-            "Duyệt Đệ Quy Đa Tầng (Recursive)",
-            ACCENT_GREEN,
-            SURFACE_TINT_GREEN,
-            [
-                ("• Thứ tự duyệt: ", "In hết toàn bộ mục của thư mục hiện tại rồi mới đệ quy xuống thư mục con."),
-                ("• An toàn tuyệt đối: ", "Đóng closedir() trước khi đệ quy; chặn '.', '..' và Symlink để chống lặp vô hạn."),
-            ],
-        ),
-        (
-            6.80,
-            5.15,
-            "-S",
-            "Sắp Xếp Theo Kích Thước (Size Sort)",
-            ACCENT_PURPLE,
-            SURFACE_SLATE,
-            [
-                ("• Thứ tự giảm dần: ", "Tệp nặng nhất đứng đầu dựa trên trường st_size (kiểu 64-bit off_t)."),
-                ("• Phân định trùng: ", "Nếu 2 tệp bằng kích thước, tie-break bằng strcmp(name) từ A -> Z."),
-            ],
-        ),
-    ]
-
-    for bx, by, flag, heading, col, badge_bg, bullets in bento:
-        add_box(slide, bx, by, 5.95, 1.82, fill_color=SURFACE_WHITE, border_color=BORDER_LIGHT, border_pt=1.0, corner_radius=0.06)
-        add_box(slide, bx + 0.20, by + 0.20, 0.90, 0.52, fill_color=col, border_color=None, corner_radius=0.18)
-        add_text(slide, bx + 0.20, by + 0.23, 0.90, 0.45, flag, font_size=18, bold=True, font_name=FONT_MONO, color=INK_WHITE, align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE)
-        add_text(slide, bx + 1.25, by + 0.24, 4.5, 0.40, heading, font_size=15.5, bold=True, color=INK_NAVY)
-        add_rich_bullets(slide, bx + 0.20, by + 0.82, 5.55, 0.92, bullets, font_size=12.0, lead_color=col, space_after_pt=4)
-
-
-# ==============================================================================
-# SLIDE 3: BẢN CHẤT DENTRY VS INODE (Layout 3-Column Diagram + Cutout Kính Lúp)
-# ==============================================================================
-def build_slide_03(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_WARM_IVORY)
-    add_header_chrome(
-        slide,
-        3,
-        "PHẦN 1 · CƠ SỞ HỆ THỐNG",
-        "2. Tại Sao Chỉ Gọi readdir() Thì Không Thể Làm Được Cờ -l Và -S?",
-        "Bản chất tách biệt giữa 'Danh bạ tên tệp' (Directory Entry) và 'Hồ sơ gốc' (Inode) trong Linux.",
-    )
-
-    # Cột 1: Thư mục (Danh bạ mỏng)
-    add_box(slide, 0.55, 1.70, 4.15, 4.35, fill_color=SURFACE_WHITE, border_color=ACCENT_BLUE, border_pt=1.5, corner_radius=0.06)
-    add_box(slide, 0.55, 1.70, 4.15, 0.55, fill_color=ACCENT_BLUE, border_color=None, shape_type=MSO_SHAPE.RECTANGLE)
-    add_text(slide, 0.70, 1.80, 3.85, 0.36, "BƯỚC 1: THƯ MỤC (Đọc bằng readdir)", font_size=13.5, bold=True, color=INK_WHITE)
-    add_text(
-        slide,
-        0.75,
-        2.38,
-        3.75,
-        0.85,
-        "Thư mục trong Linux chỉ là một 'cuốn danh bạ mỏng' gồm đúng 2 cột: Tên tệp và Mã số Inode.",
-        font_size=12.5,
-        color=INK_BODY,
-    )
-    # Bảng giả lập Dentry (đủ độ rộng cho cả 2 cột trên 1 dòng)
-    dentries = [
-        ("d_name (Tên tệp)", "d_ino (Inode)"),
-        ("dataset_large.bin", "#40912"),
-        (".env.hidden", "#40915"),
-        ("latest_data.lnk", "#40918"),
-        ("src_module", "#40920"),
-    ]
-    dy = 3.30
-    for idx, (dn, dino) in enumerate(dentries):
-        is_hdr = idx == 0
-        add_box(slide, 0.75, dy, 3.75, 0.42, fill_color=SURFACE_TINT_BLUE if is_hdr else SURFACE_SLATE, border_color=BORDER_LIGHT, border_pt=0.75, shape_type=MSO_SHAPE.RECTANGLE)
-        add_text(slide, 0.85, dy + 0.08, 2.05, 0.28, dn, font_size=10.5, bold=is_hdr, font_name=FONT_MONO, color=ACCENT_BLUE if is_hdr else INK_NAVY)
-        add_text(slide, 2.95, dy + 0.08, 1.50, 0.28, dino, font_size=10.5, bold=is_hdr, font_name=FONT_MONO, color=ACCENT_AMBER if not is_hdr else ACCENT_BLUE)
-        dy += 0.44
-    add_text(slide, 0.75, 5.58, 3.75, 0.36, "⚠ Không hề có Kích thước, Quyền hay Ngày giờ!", font_size=11.5, bold=True, color=ACCENT_RED)
-
-    # Cột 2 (Giữa): Vật thể 3D Kính lúp tách nền + Mũi tên nối nhân quả
-    add_picture_contain(slide, CUTOUTS_DIR / "dentry_magnifier.png", 4.95, 1.95, 3.40, 3.20)
-    add_box(slide, 4.90, 5.22, 3.50, 0.82, fill_color=SURFACE_TINT_AMBER, border_color=ACCENT_AMBER, border_pt=1.2, corner_radius=0.12)
-    add_text(
-        slide,
-        5.02,
-        5.30,
-        3.26,
-        0.68,
-        "Phải ghép đường dẫn join_path()\nrồi gọi tiếp lstat(full_path, &st)!",
-        font_size=12,
-        bold=True,
-        color=ACCENT_AMBER,
-        align=PP_ALIGN.CENTER,
-    )
-
-    # Cột 3: Bảng Inode (Hồ sơ gốc)
-    add_box(slide, 8.65, 1.70, 4.10, 4.35, fill_color=SURFACE_WHITE, border_color=ACCENT_GREEN, border_pt=1.5, corner_radius=0.06)
-    add_box(slide, 8.65, 1.70, 4.10, 0.55, fill_color=ACCENT_GREEN, border_color=None, shape_type=MSO_SHAPE.RECTANGLE)
-    add_text(slide, 8.80, 1.80, 3.80, 0.36, "BƯỚC 2: BẢNG INODE (Đọc bằng lstat)", font_size=13.5, bold=True, color=INK_WHITE)
-
-    inode_fields = [
-        ("st_mode : ", "Loại tệp & 12 bit quyền (-rwxr-xr-x)"),
-        ("st_nlink : ", "Số tên (Hard links) cùng trỏ vào Inode"),
-        ("st_uid / gid : ", "Mã số Chủ sở hữu & Nhóm (1000)"),
-        ("st_size : ", "Kích thước thực (8192 bytes) -> Dùng cho -S"),
-        ("st_blocks : ", "Số khối đĩa 512B -> Chia 2 ra dòng 'total'"),
-        ("st_mtime : ", "Thời điểm sửa đổi cuối -> In ngày giờ -l"),
-    ]
-    add_rich_bullets(slide, 8.85, 2.40, 3.75, 3.45, inode_fields, font_size=12.0, lead_color=ACCENT_GREEN, space_after_pt=8)
-
-    # Thanh Kết luận Nhân - Quả ở đáy
-    add_box(slide, 0.55, 6.22, 12.20, 0.68, fill_color=SURFACE_TINT_BLUE, border_color=ACCENT_BLUE, border_pt=1.0, corner_radius=0.08)
-    add_text(
-        slide,
-        0.75,
-        6.34,
-        11.80,
-        0.44,
-        "KẾT LUẬN NHÂN - QUẢ:  readdir() chỉ cho biết TÊN TỆP  ──►  Muốn in chi tiết (-l) hoặc sắp xếp kích thước (-S), bắt buộc phải gọi lstat() để đọc INODE.",
-        font_size=13,
-        bold=True,
-        color=ACCENT_BLUE,
-        align=PP_ALIGN.CENTER,
-    )
-
-
-# ==============================================================================
-# SLIDE 4: KIẾN TRÚC 5 MODULE & LUỒNG DỮ LIỆU (Layout 5-Step Pipeline + Dynamic Vector)
-# ==============================================================================
-def build_slide_04(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_SOFT_BLUE)
-    add_header_chrome(
-        slide,
-        4,
-        "PHẦN 2 · KIẾN TRÚC HỆ THỐNG",
-        "3. Kiến Trúc 5 Module Độc Lập & Tại Sao Phải Gom Vào Mảng Động Trước Khi In?",
-        "Thiết kế tách biệt trách nhiệm (Separation of Concerns) và cơ chế tự nhân đôi bộ nhớ bằng realloc().",
-    )
-
-    # Dải 5 bước Pipeline ngang
-    steps = [
-        ("01", "src/options.c", "Phân tích Cờ", "Dùng getopt() tách -a, -l, -R, -S (kể cả viết gộp -alRS). Bắt lỗi cờ sai -> exit(2).", ACCENT_BLUE),
-        ("02", "src/main.c", "Tách Đối Số", "Phân loại đường dẫn thành file_list (in trước) và dir_list (in sau) đúng chuẩn POSIX.", ACCENT_PURPLE),
-        ("03", "src/directory.c", "Đọc & Nạp Inode", "opendir -> readdir -> lstat -> readlink. Đóng closedir() ngay lập tức trước khi đệ quy.", ACCENT_GREEN),
-        ("04", "src/sorting.c", "Sắp Xếp qsort()", "Mặc định: strcmp() A-Z.\nBật -S: st_size giảm dần + tie-break tên A-Z.", ACCENT_AMBER),
-        ("05", "src/display.c", "Giải Mã & Căn Cột", "Quét độ rộng cột lớn nhất, in 'total', giải mã 16-bit st_mode & mtime 6 tháng.", ACCENT_RED),
-    ]
-
-    sx = 0.55
-    for num, mod, name, desc, col in steps:
-        add_box(slide, sx, 1.72, 2.30, 2.55, fill_color=SURFACE_WHITE, border_color=BORDER_LIGHT, border_pt=1.0, corner_radius=0.06)
-        add_box(slide, sx, 1.72, 2.30, 0.42, fill_color=col, border_color=None, shape_type=MSO_SHAPE.RECTANGLE)
-        add_text(slide, sx + 0.12, 1.78, 2.06, 0.30, f"BƯỚC {num} · {mod}", font_size=10.0, bold=True, font_name=FONT_MONO, color=INK_WHITE)
-        add_text(slide, sx + 0.14, 2.24, 2.02, 0.34, name, font_size=14, bold=True, color=INK_NAVY)
-        add_text(slide, sx + 0.14, 2.62, 2.02, 1.50, desc, font_size=11.5, color=INK_BODY, line_spacing=1.2)
-        sx += 2.47
-
-    # Nửa dưới: Giải thích Tại sao không vừa đọc vừa in ngay mà phải dùng EntryList động
-    add_box(slide, 0.55, 4.50, 12.20, 2.40, fill_color=SURFACE_WHITE, border_color=ACCENT_BLUE, border_pt=1.2, corner_radius=0.05)
-    add_text(
-        slide,
-        0.80,
-        4.64,
-        11.7,
-        0.38,
-        "TẠI SAO KHÔNG VỪA readdir() VỪA printf() NGAY MÀ PHẢI GOM VÀO MẢNG ĐỘNG EntryList?",
-        font_size=14.5,
-        bold=True,
-        color=ACCENT_BLUE,
-    )
-
-    reasons = [
-        (
-            "Lý do 1: Phục vụ Sắp xếp (-S & A-Z)",
-            "readdir() trả về thứ tự lưu trữ thô lộn xộn trên đĩa. Phải đọc hết 100% tệp trong thư mục vào RAM thì qsort() mới biết tệp nào nặng nhất để đưa lên đầu.",
-            0.80,
-        ),
-        (
-            "Lý do 2: Căn lề thẳng hàng trong -l",
-            "Nếu tệp thứ 1 nặng 12B nhưng tệp thứ 50 nặng 1048576B, phải quét hết cả 50 tệp trước mới biết cột Size cần chừa trống 7 ký tự để các dòng thẳng cột.",
-            4.80,
-        ),
-        (
-            "Lý do 3: Tự nhân đôi bằng realloc()",
-            "Không dùng mảng tĩnh a[1000] (dễ tràn khi gặp /usr/bin có >2000 tệp). EntryList khởi tạo capacity = 64 -> 128 -> 256... và giải phóng sạch 0 leak.",
-            8.80,
-        ),
-    ]
-    for rtitle, rbody, rx in reasons:
-        add_box(slide, rx, 5.12, 3.70, 1.56, fill_color=SURFACE_TINT_BLUE, border_color=BORDER_LIGHT, border_pt=0.8, corner_radius=0.06)
-        add_text(slide, rx + 0.16, 5.22, 3.38, 0.34, rtitle, font_size=12.5, bold=True, color=INK_NAVY)
-        add_text(slide, rx + 0.16, 5.58, 3.38, 1.00, rbody, font_size=11.5, color=INK_BODY, line_spacing=1.18)
-
-
-# ==============================================================================
-# SLIDE 5: GIẢI PHẪU DÒNG -l & 16-BIT st_mode (Layout Callout Breakdown + Switchboard)
-# ==============================================================================
-def build_slide_05(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_WARM_IVORY)
-    add_header_chrome(
-        slide,
-        5,
-        "PHẦN 3 · GIẢI PHẪU KỸ THUẬT (-l)",
-        "4. Giải Phẫu Một Dòng Xuất Của Cờ -l & Bảng Giải Mã 16-Bit st_mode",
-        "Cách src/display.c biến các con số nguyên thô trong Inode thành chuỗi hiển thị chuẩn GNU ls.",
-        tag_color=ACCENT_AMBER,
-    )
-
-    # Khung Specimen lớn ở giữa trên: Mổ xẻ từng thành phần của 1 dòng ls -l (trên 1 dòng duy nhất)
-    add_box(slide, 0.55, 1.68, 12.20, 1.18, fill_color=SURFACE_WHITE, border_color=ACCENT_BLUE, border_pt=1.5, corner_radius=0.06)
-    add_text(
-        slide,
-        0.75,
-        1.74,
-        11.8,
-        0.26,
-        "MỔ XẺ TRỰC QUAN 7 TRƯỜNG TRONG MỘT DÒNG XUẤT CỦA ./myls -l:",
-        font_size=10.5,
-        bold=True,
-        color=ACCENT_BLUE,
-    )
-    add_text(
-        slide,
-        0.75,
-        2.04,
-        11.8,
-        0.36,
-        "lrwxrwxrwx   1   linhnxdeveloper   linhnxdeveloper    17   Oct 15 18:41   latest_data.lnk -> dataset_large.bin",
-        font_size=13.2,
-        bold=True,
-        font_name=FONT_MONO,
-        color=INK_NAVY,
-    )
-    add_text(
-        slide,
-        0.75,
-        2.44,
-        11.8,
-        0.30,
-        "[1. Loại & Quyền]  [2. Links]     [3. Owner]          [4. Group]       [5. Size]   [6. mtime 6 tháng]      [7. Tên & Đích Symlink (readlink)]",
-        font_size=10.2,
-        bold=True,
-        font_name=FONT_MONO,
-        color=ACCENT_AMBER,
-    )
-
-    # 4 Thẻ giải thích chi tiết bên trái (chiếm 7.55 inch)
-    cards = [
-        (
-            "1. Giải mã 16-bit st_mode -> 10 ký tự ('-rwxr-sr-t')",
-            "• Ký tự 0 (S_IFMT): '-' (File), 'd' (Dir), 'l' (Symlink), 'c', 'b', 'p', 's'.\n"
-            "• Ký tự 1..9: 9 bit rwx kết hợp 3 bit đặc biệt SUID (s/S), SGID (s/S), Sticky bit (t/T).",
-            ACCENT_BLUE,
-        ),
-        (
-            "2. Tại sao dòng 'total' phải lấy tổng st_blocks chia 2?",
-            "• Kernel Linux luôn đếm st_blocks theo đơn vị khối 512 Bytes.\n"
-            "• GNU ls -l hiển thị dòng 'total' theo đơn vị khối 1024 Bytes (1 KB)  ──►  total = sum(st_blocks) / 2.",
-            ACCENT_AMBER,
-        ),
-        (
-            "3. Quy tắc Thời gian 6 Tháng của POSIX (st_mtime)",
-            "• Nếu tệp sửa đổi trong vòng 6 tháng (< 15.778.476 giây): in 'Tháng Ngày Giờ:Phút' (Oct 15 18:41).\n"
-            "• Nếu tệp cũ hơn 6 tháng (hoặc ở tương lai): tự động đổi sang in 'Tháng Ngày  Năm' (May 15  2022).",
-            ACCENT_GREEN,
-        ),
-        (
-            "4. Tra cứu UID/GID an toàn & Kết thúc chuỗi readlink()",
-            "• Nếu getpwuid()/getgrgid() trả về NULL (UID mồ côi), tự động fallback in mã số nguyên UID/GID.\n"
-            "• POSIX readlink() không tự thêm '\\0' -> bắt buộc gán tường minh link_buf[len] = '\\0'.",
-            ACCENT_PURPLE,
-        ),
-    ]
-
-    cy = 3.04
-    for ctitle, cbody, col in cards:
-        add_box(slide, 0.55, cy, 7.55, 0.92, fill_color=SURFACE_WHITE, border_color=BORDER_LIGHT, border_pt=1.0, corner_radius=0.06)
-        add_box(slide, 0.55, cy, 0.12, 0.92, fill_color=col, border_color=None, shape_type=MSO_SHAPE.RECTANGLE)
-        add_text(slide, 0.80, cy + 0.06, 7.15, 0.28, ctitle, font_size=12.5, bold=True, color=col)
-        add_text(slide, 0.80, cy + 0.34, 7.15, 0.54, cbody, font_size=11.0, color=INK_BODY, line_spacing=1.15)
-        cy += 0.99
-
-    # Bên phải: Vật thể 3D Bảng công tắc 16-bit tách nền trong suốt + Sơ đồ Bit
-    add_box(slide, 8.35, 3.04, 4.40, 3.89, fill_color=SURFACE_WHITE, border_color=BORDER_LIGHT, border_pt=1.0, corner_radius=0.06)
-    add_picture_contain(slide, CUTOUTS_DIR / "bitmask_decoder.png", 8.55, 3.14, 4.00, 2.55)
-    add_box(slide, 8.55, 5.78, 4.00, 0.98, fill_color=SURFACE_TINT_BLUE, border_color=ACCENT_BLUE, border_pt=1.0, corner_radius=0.08)
-    add_text(
-        slide,
-        8.65,
-        5.86,
-        3.80,
-        0.82,
-        "Cấu trúc 16-bit st_mode:\n[15..12: Loại] [11..9: SUID/SGID/Sticky]\n[8..6: User] [5..3: Group] [2..0: Other]",
-        font_size=11.0,
-        bold=True,
-        font_name=FONT_MONO,
-        color=ACCENT_BLUE,
-        align=PP_ALIGN.CENTER,
-    )
-
-
-# ==============================================================================
-# SLIDE 6: TẠI SAO DÙNG lstat() THAY VÌ stat()? (Layout Dual-Track Visual Comparison)
-# ==============================================================================
-def build_slide_06(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_SOFT_BLUE)
-    add_header_chrome(
-        slide,
-        6,
-        "PHẦN 3 · QUYẾT ĐỊNH SỐNG CÒN",
-        "5. Tại Sao Bắt Buộc Phải Dùng lstat() Mà Tuyệt Đối Không Dùng stat()?",
-        "Phân tích đối chiếu 2 kịch bản thực tế khiến chương trình dùng stat() bị sập hoặc lặp vô tận.",
-        tag_color=ACCENT_BLUE,
-    )
-
-    # Cột Trái: Chuyện gì xảy ra nếu dùng stat()?
-    add_box(slide, 0.55, 1.72, 5.95, 5.15, fill_color=SURFACE_WHITE, border_color=ACCENT_RED, border_pt=1.5, corner_radius=0.05)
-    add_box(slide, 0.55, 1.72, 5.95, 0.55, fill_color=ACCENT_RED, border_color=None, shape_type=MSO_SHAPE.RECTANGLE)
-    add_text(slide, 0.75, 1.82, 5.55, 0.35, "NẾU DÙNG stat(path, &st)  ──►  ĐI XUYÊN QUA SYMLINK", font_size=13.5, bold=True, color=INK_WHITE)
-
-    add_box(slide, 0.80, 2.48, 5.45, 1.95, fill_color=SURFACE_TINT_RED, border_color=ACCENT_RED, border_pt=1.0, corner_radius=0.06)
-    add_text(slide, 0.98, 2.58, 5.10, 0.32, "Thảm họa 1: Khi gặp Broken Symlink (Đích đã bị xóa)", font_size=13, bold=True, color=ACCENT_RED)
-    add_text(
-        slide,
-        0.98,
-        2.95,
-        5.10,
-        1.35,
-        "• Giả sử có: broken_symlink -> non_existent_target\n"
-        "• stat() cố đi tìm 'non_existent_target' và trả về lỗi -1 (ENOENT: No such file or directory).\n"
-        "• Hậu quả: Chương trình báo lỗi và làm biến mất luôn broken_symlink khỏi danh sách hiển thị!",
-        font_size=12,
-        color=INK_BODY,
-    )
-
-    add_box(slide, 0.80, 4.65, 5.45, 1.98, fill_color=SURFACE_TINT_RED, border_color=ACCENT_RED, border_pt=1.0, corner_radius=0.06)
-    add_text(slide, 0.98, 4.75, 5.10, 0.32, "Thảm họa 2: Khi gặp Symlink trỏ ngược lên Thư mục cha", font_size=13, bold=True, color=ACCENT_RED)
-    add_text(
-        slide,
-        0.98,
-        5.12,
-        5.10,
-        1.38,
-        "• Giả sử trong thư mục con có: ln -s .. loop_back\n"
-        "• stat() đọc đích '..' và báo S_ISDIR(st_mode) == true (là thư mục thật).\n"
-        "• Hậu quả: Khi chạy đệ quy -R, chương trình chui vào loop_back -> quay lại cha -> lặp vô hạn!",
-        font_size=12,
-        color=INK_BODY,
-    )
-
-    # Cột Phải: Giải pháp chuẩn với lstat() trong myls
-    add_box(slide, 6.80, 1.72, 5.95, 5.15, fill_color=SURFACE_WHITE, border_color=ACCENT_GREEN, border_pt=1.5, corner_radius=0.05)
-    add_box(slide, 6.80, 1.72, 5.95, 0.55, fill_color=ACCENT_GREEN, border_color=None, shape_type=MSO_SHAPE.RECTANGLE)
-    add_text(slide, 7.00, 1.82, 5.55, 0.35, "GIẢI PHÁP CỦA myls: DÙNG lstat(path, &st)", font_size=13.5, bold=True, color=INK_WHITE)
-
-    add_box(slide, 7.05, 2.48, 5.45, 1.95, fill_color=SURFACE_TINT_GREEN, border_color=ACCENT_GREEN, border_pt=1.0, corner_radius=0.06)
-    add_text(slide, 7.23, 2.58, 5.10, 0.32, "Ưu điểm 1: Đọc trực tiếp Inode của chính Symlink", font_size=13, bold=True, color=ACCENT_GREEN)
-    add_text(
-        slide,
-        7.23,
-        2.95,
-        5.10,
-        1.35,
-        "• Kể cả khi tệp đích không tồn tại, bản thân file symlink vẫn tồn tại trên đĩa.\n"
-        "• lstat() thành công 100%, trả về S_ISLNK(st_mode) == true.\n"
-        "• Kết hợp readlink() để in chuẩn xác:\n  lrwxrwxrwx 1 ... broken_symlink -> non_existent_target",
-        font_size=12,
-        color=INK_BODY,
-    )
-
-    add_box(slide, 7.05, 4.65, 5.45, 1.98, fill_color=SURFACE_TINT_GREEN, border_color=ACCENT_GREEN, border_pt=1.0, corner_radius=0.06)
-    add_text(slide, 7.23, 4.75, 5.10, 0.32, "Ưu điểm 2: Miễn nhiễm vòng lặp Symlink khi đệ quy (-R)", font_size=13, bold=True, color=ACCENT_GREEN)
-    add_text(
-        slide,
-        7.23,
-        5.12,
-        5.10,
-        1.38,
-        "• Vì lstat() trả về kiểu S_ISLNK (không phải S_ISDIR), hàm kiểm tra đệ quy is_recursible_subdir() loại bỏ ngay lập tức.\n"
-        "• Ngoại lệ tinh tế trên CLI (main.c): Nếu gõ './myls symlink_to_dir' (không có -l) thì dùng stat() để liệt kê thư mục đích đúng chuẩn POSIX!",
-        font_size=12,
-        color=INK_BODY,
-    )
-
-
-# ==============================================================================
-# SLIDE 7: 3 CẠM BẪY HỆ THỐNG Ở -R VÀ -S (Layout Left Cutout Shield + 3 Cause-Effect Cards)
-# ==============================================================================
-def build_slide_07(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_WARM_IVORY)
-    add_header_chrome(
-        slide,
-        7,
-        "PHẦN 3 · THUẬT TOÁN -R & -S",
-        "6. Hóa Giải 3 Cạm Bẫy Hệ Thống Nguy Hiểm Nhất Khi Cài Đặt -R Và -S",
-        "Chống lặp vô hạn '.'/'..', chống cạn kiệt File Descriptor và chống tràn số nguyên 64-bit.",
-        tag_color=ACCENT_GREEN,
-    )
-
-    # Khung bên trái: Hình minh họa 3D Khiên bảo vệ cây thư mục đệ quy (tách nền trong suốt)
-    add_box(slide, 0.55, 1.72, 4.20, 5.15, fill_color=SURFACE_WHITE, border_color=BORDER_LIGHT, border_pt=1.0, corner_radius=0.06)
-    add_picture_contain(slide, CUTOUTS_DIR / "recursion_shield.png", 0.75, 1.82, 3.80, 3.52)
-    add_box(slide, 0.80, 5.48, 3.70, 1.18, fill_color=SURFACE_TINT_GREEN, border_color=ACCENT_GREEN, border_pt=1.0, corner_radius=0.08)
-    add_text(
-        slide,
-        0.94,
-        5.55,
-        3.42,
-        1.04,
-        "3 Chốt chặn bảo vệ Tiến trình:\n• Không lặp vô hạn Stack\n• Tối đa 1 FD mở cùng lúc\n• An toàn số 64-bit (> 2 GB)",
-        font_size=10.8,
-        bold=True,
-        color=ACCENT_GREEN,
-        line_spacing=1.12,
-    )
-
-    # Bên phải: 3 Thẻ ngang phân tích Nhân - Quả - Giải pháp
-    traps = [
-        (
-            "CẠM BẪY 1 · Tổ hợp ./myls -aR gây lặp vô hạn tại '.' và '..'",
-            "• Tại sao xảy ra? Khi bật -a, danh sách nạp cả '.' (chính nó) và '..' (thư mục cha). Cả hai đều là thư mục thật (S_ISDIR).\n"
-            "• Giải pháp (src/directory.c): Hàm is_recursible_subdir() bắt buộc kiểm tra:\n"
-            "  S_ISDIR(st.st_mode) && strcmp(name, \".\") != 0 && strcmp(name, \"..\") != 0.",
-            ACCENT_BLUE,
-        ),
-        (
-            "CẠM BẪY 2 · Cạn kiệt File Descriptor (EMFILE: Too many open files)",
-            "• Tại sao xảy ra? Mỗi tiến trình chỉ mở được ~1024 FD (ulimit -n). Nếu gọi đệ quy ngay trong vòng lặp readdir() trước khi closedir(), hàng trăm FD bị treo.\n"
-            "• Giải pháp (src/directory.c): Đọc hết vào EntryList ──► Gọi closedir(dir) NGAY LẬP TỨC ──► Sort & In ──► Mới đệ quy xuống thư mục con.",
-            ACCENT_AMBER,
-        ),
-        (
-            "CẠM BẪY 3 · Tràn số nguyên 64-bit khi viết 'return b->st_size - a->st_size' (-S)",
-            "• Tại sao xảy ra? st_size có kiểu off_t (64-bit), nhưng comparator của qsort() trả về int (32-bit, tối đa ~2 GB). Trừ trực tiếp tệp > 2 GB sẽ tràn bit dấu!\n"
-            "• Giải pháp (src/sorting.c): Dùng phép so sánh '>' (trả về -1) và '<' (trả về 1). Nếu kích thước bằng nhau, gọi strcmp(a->name, b->name) để tie-break.",
-            ACCENT_GREEN,
-        ),
-    ]
-
-    ty = 1.72
-    for ttitle, tbody, col in traps:
-        add_box(slide, 5.00, ty, 7.75, 1.60, fill_color=SURFACE_WHITE, border_color=BORDER_LIGHT, border_pt=1.0, corner_radius=0.06)
-        add_box(slide, 5.00, ty, 7.75, 0.38, fill_color=col, border_color=None, shape_type=MSO_SHAPE.RECTANGLE)
-        add_text(slide, 5.18, ty + 0.05, 7.40, 0.28, ttitle, font_size=12.0, bold=True, color=INK_WHITE)
-        add_text(slide, 5.18, ty + 0.46, 7.40, 1.06, tbody, font_size=11.5, color=INK_BODY, line_spacing=1.18)
-        ty += 1.77
-
-
-# ==============================================================================
-# SLIDE 8: BẪY MÔI TRƯỜNG WSL2 (/mnt/p DrvFs vs /tmp Native Linux)
-# ==============================================================================
-def build_slide_08(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_SOFT_BLUE)
-    add_header_chrome(
-        slide,
-        8,
-        "PHẦN 4 · THỰC NGHIỆM TRÊN WSL2",
-        "7. Tại Sao Phải Dựng Dữ Liệu Kiểm Thử (Fixtures) Trên /tmp Thay Vì /mnt/p?",
-        "Phát hiện kỹ thuật quan trọng khi kiểm thử chương trình hệ thống Linux trên Windows Subsystem for Linux (WSL2).",
-        tag_color=ACCENT_PURPLE,
-    )
-
-    # Sơ đồ Kiến trúc 2 vùng Filesystem trên WSL2
-    add_box(slide, 0.55, 1.72, 5.80, 3.65, fill_color=SURFACE_WHITE, border_color=ACCENT_AMBER, border_pt=1.5, corner_radius=0.06)
-    add_box(slide, 0.55, 1.72, 5.80, 0.52, fill_color=ACCENT_AMBER, border_color=None, shape_type=MSO_SHAPE.RECTANGLE)
-    add_text(slide, 0.75, 1.82, 5.40, 0.32, "VÙNG 1: /mnt/p/DoAn_Laptrinhhethong (Windows DrvFs)", font_size=13, bold=True, color=INK_WHITE)
-
-    drvfs_points = [
-        ("• Bản chất: ", "Ổ đĩa Windows (NTFS) được mount vào WSL2 qua cầu nối 9P / DrvFs."),
-        ("• Hạn chế quyền POSIX: ", "Mọi tệp bị giả lập quyền mặc định thành rwxrwxrwx (0777)."),
-        ("• Không test được Edge Cases: ", "Lệnh chmod 0000 (khóa thư mục) hay chmod 4755 (SUID) không phản ánh đúng hành vi nhân Linux."),
-        ("• Vai trò trong dự án: ", "Dùng để lưu mã nguồn C, Makefile, tài liệu và đồng bộ Git thuận tiện với IDE trên Windows."),
-    ]
-    add_rich_bullets(slide, 0.75, 2.38, 5.40, 2.80, drvfs_points, font_size=12.0, lead_color=ACCENT_AMBER, space_after_pt=6)
-
-    # Mũi tên chuyển hướng ở giữa
-    add_box(slide, 6.45, 3.10, 0.40, 0.80, fill_color=ACCENT_BLUE, border_color=None, shape_type=MSO_SHAPE.RIGHT_ARROW)
-
-    # Hộp Phải: /tmp/myls_test_XXXXXX (Native Linux Filesystem)
-    add_box(slide, 6.95, 1.72, 5.80, 3.65, fill_color=SURFACE_WHITE, border_color=ACCENT_GREEN, border_pt=1.5, corner_radius=0.06)
-    add_box(slide, 6.95, 1.72, 5.80, 0.52, fill_color=ACCENT_GREEN, border_color=None, shape_type=MSO_SHAPE.RECTANGLE)
-    add_text(slide, 7.15, 1.82, 5.40, 0.32, "VÙNG 2: /tmp/myls_test_XXXXXX (Native Linux FS)", font_size=13, bold=True, color=INK_WHITE)
-
-    ext4_points = [
-        ("• Bản chất: ", "Hệ thống tệp gốc bên trong máy ảo Ubuntu 24.04 (Kernel 6.18 WSL2)."),
-        ("• Chuẩn 100% Inode POSIX: ", "Hỗ trợ đầy đủ SUID (4755), SGID (2755), Sticky bit (1777) và chmod 0000."),
-        ("• Chuẩn Hard link & Symlink: ", "Đếm chính xác st_nlink, st_blocks (512B units) và broken symlink."),
-        ("• Vai trò trong dự án: ", "make test tự động dựng Fixture trong /tmp và chạy diff -u với LC_ALL=C ls."),
-    ]
-    add_rich_bullets(slide, 7.15, 2.38, 5.40, 2.80, ext4_points, font_size=12.0, lead_color=ACCENT_GREEN, space_after_pt=6)
-
-    # Dải quy trình 4 bước tự động hóa của tests/run_tests.sh ở dưới
-    add_box(slide, 0.55, 5.58, 12.20, 1.32, fill_color=SURFACE_WHITE, border_color=ACCENT_BLUE, border_pt=1.2, corner_radius=0.06)
-    add_text(slide, 0.75, 5.68, 11.8, 0.30, "QUY TRÌNH TỰ ĐỘNG HÓA TRONG LỆNH make test (tests/run_tests.sh):", font_size=11.5, bold=True, color=ACCENT_BLUE)
-
-    flow = [
-        ("Bước 1: mktemp -d /tmp/...", "Tạo không gian cô lập sạch trên Linux FS"),
-        ("Bước 2: setup_fixtures()", "Tạo tệp 0B..10KB, ẩn, SUID, symlink, dir 0000"),
-        ("Bước 3: diff -u (15 kịch bản)", "So sánh từng byte giữa ./myls và LC_ALL=C ls"),
-        ("Bước 4: trap cleanup EXIT", "Tự động mở khóa và dọn sạch /tmp sau khi test"),
-    ]
-    fx = 0.75
-    for ftitle, fsub in flow:
-        add_box(slide, fx, 6.04, 2.82, 0.72, fill_color=SURFACE_TINT_BLUE, border_color=BORDER_LIGHT, border_pt=0.8, corner_radius=0.08)
-        add_text(slide, fx + 0.10, 6.09, 2.62, 0.28, ftitle, font_size=10.5, bold=True, font_name=FONT_MONO, color=ACCENT_BLUE)
-        add_text(slide, fx + 0.10, 6.38, 2.62, 0.30, fsub, font_size=10.0, color=INK_BODY)
-        fx += 2.98
-
-
-# ==============================================================================
-# SLIDE 9: KẾT QUẢ 15 TEST CASES & KIỂM TRA BỘ NHỚ (Layout KPI Stat Callouts + 3x5 Grid)
-# ==============================================================================
-def build_slide_09(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_WARM_IVORY)
-    add_header_chrome(
-        slide,
-        9,
-        "PHẦN 4 · KẾT QUẢ NGHIỆM THU",
-        "8. Kết Quả Kiểm Thử Tự Động: 15/15 Kịch Bản Khớp Tuyệt Đối GNU ls",
-        "Xác thực bằng diff -u với GNU coreutils 9.4 và kiểm tra rò rỉ bộ nhớ bằng AddressSanitizer / LeakSanitizer.",
-        tag_color=ACCENT_GREEN,
-    )
-
-    # Hàng trên: 3 Big Number KPI Cards (không bị rớt dòng số)
-    kpis = [
-        ("15 / 15", "Kịch Bản Kiểm Thử Tự Động PASS", "Đối chiếu byte-for-byte (diff -u) với LC_ALL=C ls", ACCENT_GREEN, SURFACE_TINT_GREEN),
-        ("0 Bytes", "Rò Rỉ Bộ Nhớ (Zero Memory Leaks)", "Xác thực bằng GCC -fsanitize=address,undefined", ACCENT_BLUE, SURFACE_TINT_BLUE),
-        ("0 Lỗi/Cảnh báo", "Biên Dịch Chuẩn C11 Nghiêm Ngặt", "Cờ: -Wall -Wextra -Werror -pedantic -std=c11", ACCENT_AMBER, SURFACE_TINT_AMBER),
-    ]
-    kx = 0.55
-    for big_num, ktitle, ksub, col, bg in kpis:
-        add_box(slide, kx, 1.68, 3.90, 1.38, fill_color=SURFACE_WHITE, border_color=col, border_pt=1.5, corner_radius=0.06)
-        add_box(slide, kx + 0.16, 1.84, 1.56, 1.06, fill_color=bg, border_color=None, corner_radius=0.08)
-        fsize = 16.5 if len(big_num) > 8 else 20.5
-        add_text(slide, kx + 0.16, 2.02, 1.56, 0.70, big_num, font_size=fsize, bold=True, color=col, align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE)
-        add_text(slide, kx + 1.82, 1.86, 1.96, 0.52, ktitle, font_size=12.5, bold=True, color=INK_NAVY)
-        add_text(slide, kx + 1.82, 2.42, 1.96, 0.50, ksub, font_size=10.2, color=INK_MUTED)
-        kx += 4.15
-
-    # Lưới 3x5 hiển thị toàn bộ 15 Test Cases
-    tests = [
-        ("Test 01", "./myls", "Mặc định A -> Z"),
-        ("Test 02", "./myls -a", "Hiện tệp ẩn '.', '..'"),
-        ("Test 03", "./myls -l", "Chi tiết + SUID/Sticky"),
-        ("Test 04", "./myls -R", "Đệ quy đa tầng"),
-        ("Test 05", "./myls -S", "Size giảm + Tie-break"),
-        ("Test 06", "./myls -la", "Kết hợp Long + All"),
-        ("Test 07", "./myls -lS", "Kết hợp Long + Size"),
-        ("Test 08", "./myls -lR", "Kết hợp Long + Recurse"),
-        ("Test 09", "./myls -aR", "Chống lặp '.' & '..'"),
-        ("Test 10", "./myls -alRS", "Tổ hợp toàn diện 4 cờ"),
-        ("Test 11", "Mixed Paths", "Tệp in trước, Dir in sau"),
-        ("Test 12", "Symlinks", "Symlink dir & broken link"),
-        ("Test 13", "ENOENT Path", "Báo stderr, Exit code = 1"),
-        ("Test 14", "chmod 0000", "Báo lỗi, tiếp tục chạy"),
-        ("Test 15", "Invalid -z", "Báo Usage, Exit code = 2"),
-    ]
-
-    start_x = 0.55
-    start_y = 3.28
-    col_w = 2.32
-    row_h = 1.12
-    gap_x = 0.15
-    gap_y = 0.14
-
-    for idx, (tcode, tcmd, tdesc) in enumerate(tests):
-        r = idx // 5
-        c = idx % 5
-        bx = start_x + c * (col_w + gap_x)
-        by = start_y + r * (row_h + gap_y)
-
-        add_box(slide, bx, by, col_w, row_h, fill_color=SURFACE_WHITE, border_color=BORDER_LIGHT, border_pt=1.0, corner_radius=0.06)
-        add_box(slide, bx + 0.12, by + 0.12, 0.78, 0.28, fill_color=SURFACE_TINT_GREEN, border_color=ACCENT_GREEN, border_pt=0.8, corner_radius=0.3)
-        add_text(slide, bx + 0.12, by + 0.13, 0.78, 0.25, "PASS", font_size=9.0, bold=True, color=ACCENT_GREEN, align=PP_ALIGN.CENTER)
-        add_text(slide, bx + 0.98, by + 0.12, 1.20, 0.26, tcode, font_size=10.0, bold=True, color=INK_MUTED)
-        add_text(slide, bx + 0.12, by + 0.45, 2.08, 0.30, tcmd, font_size=11.5, bold=True, font_name=FONT_MONO, color=ACCENT_BLUE)
-        add_text(slide, bx + 0.12, by + 0.76, 2.08, 0.28, tdesc, font_size=10.5, color=INK_BODY)
-
-
-# ==============================================================================
-# SLIDE 10: MINH CHỨNG CHẠY THỰC TẾ CÁC CỜ CƠ BẢN (Layout Left Terminal + Right Callouts)
-# ==============================================================================
-def build_slide_10(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_SOFT_BLUE)
-    add_header_chrome(
-        slide,
-        10,
-        "PHẦN 4 · MINH CHỨNG DEMO (1/2)",
-        "9. Minh Chứng Thực Tế Trên Ubuntu 24.04 WSL2: ./myls, -a, -l, -R",
-        "Ảnh chụp trực tiếp phiên chạy thực tế trên nhân Linux 6.18.33.2-microsoft-standard-WSL2.",
-    )
-
-    # Khung ảnh chụp Terminal bên trái
-    add_box(slide, 0.55, 1.68, 7.65, 5.20, fill_color=SURFACE_WHITE, border_color=BORDER_LIGHT, border_pt=1.2, corner_radius=0.04)
-    add_picture_contain(slide, EVIDENCE_DIR / "demo_basic_flags_capture.png", 0.65, 1.76, 7.45, 5.04)
-
-    # 3 Thẻ phân tích điểm nhấn bên phải
-    notes = [
-        (
-            "1. Đối chiếu ./myls và ./myls -a",
-            "• Ở ./myls: Tệp ẩn '.env.hidden' cũng như '.' và '..' được lọc bỏ hoàn toàn.\n"
-            "• Ở ./myls -a: Xuất hiện đầy đủ '.', '..', '.env.hidden' ở đầu danh sách theo thứ tự mã ASCII.",
-            ACCENT_BLUE,
-        ),
-        (
-            "2. Độ chính xác của ./myls -l",
-            "• Dòng 'total 24' tính chuẩn xác từ tổng st_blocks / 2.\n"
-            "• Phân biệt rõ thư mục ('drwxr-xr-x'), tệp thực thi ('-rwxr-xr-x' cho main_sample.c) và Symlink ('lrwxrwxrwx ... latest_data.lnk -> dataset_large.bin').",
-            ACCENT_AMBER,
-        ),
-        (
-            "3. Duyệt đệ quy ./myls -R",
-            "• Tự động bật tiêu đề '.:', liệt kê toàn bộ thư mục gốc trước.\n"
-            "• Sau đó lần lượt đi sâu vào './docs_sub:' và './src_module:', bỏ qua symlink 'latest_data.lnk'.",
-            ACCENT_GREEN,
-        ),
-    ]
-
-    ny = 1.68
-    for ntitle, nbody, col in notes:
-        add_box(slide, 8.45, ny, 4.30, 1.62, fill_color=SURFACE_WHITE, border_color=col, border_pt=1.2, corner_radius=0.06)
-        add_text(slide, 8.65, ny + 0.12, 3.90, 0.32, ntitle, font_size=13, bold=True, color=col)
-        add_text(slide, 8.65, ny + 0.46, 3.90, 1.08, nbody, font_size=11.2, color=INK_BODY, line_spacing=1.18)
-        ny += 1.79
-
-
-# ==============================================================================
-# SLIDE 11: MINH CHỨNG TỔ HỢP -S VÀ -alRS (Layout Left Analysis + Right Terminal)
-# ==============================================================================
-def build_slide_11(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_WARM_IVORY)
-    add_header_chrome(
-        slide,
-        11,
-        "PHẦN 4 · MINH CHỨNG DEMO (2/2)",
-        "10. Minh Chứng Thực Tế Tổ Hợp Cờ Đầy Đủ: ./myls -S Và ./myls -alRS",
-        "Kiểm chứng sự phối hợp đồng thời cả 4 cờ (-a, -l, -R, -S) và kết quả chạy bộ kiểm thử tự động.",
-        tag_color=ACCENT_AMBER,
-    )
-
-    # Bên trái: 3 hộp phân tích kết quả
-    left_cards = [
-        (
-            "1. Thứ tự kích thước giảm dần (-S)",
-            "• dataset_large.bin (8192 B) đứng đầu.\n"
-            "• Tiếp theo là các thư mục '.', '..', 'docs_sub', 'src_module' (cùng 4096 B, được tie-break theo tên ASCII: '.' -> '..' -> 'docs_sub' -> 'src_module').\n"
-            "• Cuối cùng là config_medium.cfg (1024 B), main_sample.c (29 B), .env.hidden (22 B) và latest_data.lnk (17 B).",
-            ACCENT_AMBER,
-        ),
-        (
-            "2. Đệ quy kèm sắp xếp kích thước (-alRS)",
-            "• Tại mỗi thư mục con (./docs_sub và ./src_module), chương trình đều tính lại độ rộng cột động, in dòng 'total 12' và sắp xếp các mục bên trong theo kích thước giảm dần.",
-            ACCENT_BLUE,
-        ),
-        (
-            "3. Đối chiếu tự động (test_suite_capture)",
-            "• Toàn bộ 15/15 kịch bản kiểm thử tự động đạt PASS tuyệt đối chỉ trong < 0.2 giây thực thi trên Ubuntu 24.04 WSL2.",
-            ACCENT_GREEN,
-        ),
-    ]
-
-    ly = 1.68
-    for ltitle, lbody, col in left_cards:
-        h = 2.02 if ly == 1.68 else 1.45
-        add_box(slide, 0.55, ly, 4.45, h, fill_color=SURFACE_WHITE, border_color=col, border_pt=1.2, corner_radius=0.06)
-        add_text(slide, 0.75, ly + 0.12, 4.05, 0.32, ltitle, font_size=13, bold=True, color=col)
-        add_text(slide, 0.75, ly + 0.46, 4.05, h - 0.54, lbody, font_size=11.0, color=INK_BODY, line_spacing=1.16)
-        ly += h + 0.14
-
-    # Bên phải: Ảnh chụp Terminal thực tế ./myls -S và ./myls -alRS
-    add_box(slide, 5.25, 1.68, 7.50, 5.20, fill_color=SURFACE_WHITE, border_color=BORDER_LIGHT, border_pt=1.2, corner_radius=0.04)
-    add_picture_contain(slide, EVIDENCE_DIR / "demo_combined_alRS_capture.png", 5.35, 1.76, 7.30, 5.04)
-
-
-# ==============================================================================
-# SLIDE 12: GIỚI HẠN KỸ THUẬT, TỔNG KẾT & CÂU HỎI VẤN ĐÁP (Layout 3 Pillars + Q&A Grid)
-# ==============================================================================
-def build_slide_12(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, BG_SOFT_BLUE)
-    add_header_chrome(
-        slide,
-        12,
-        "TỔNG KẾT & BẢO VỆ ĐỒ ÁN",
-        "11. Giới Hạn Kỹ Thuật Hiện Tại, Hướng Mở Rộng & Trọng Tâm Vấn Đáp",
-        "Đánh giá trung thực phạm vi đã hoàn thành và tóm tắt các câu trả lời bảo vệ đồ án trước giảng viên.",
-        tag_color=ACCENT_BLUE,
-    )
-
-    # Hàng trên: 3 Giới hạn kỹ thuật & Hướng mở rộng
-    limits = [
-        ("Giới hạn 1 · Locale Collation", "Hiện dùng strcmp() chuẩn ASCII (LC_ALL=C). Hướng mở rộng: tích hợp setlocale() + strcoll()."),
-        ("Giới hạn 2 · POSIX ACL & SELinux", "Hiện giải mã 10 ký tự chuẩn POSIX. Hướng mở rộng: đọc getxattr() để hiển thị dấu '+' hoặc '.'."),
-        ("Giới hạn 3 · Multi-Column & ANSI Color", "Hiện xuất 1 mục/dòng chuẩn pipe. Hướng mở rộng: dùng ioctl(TIOCGWINSZ) chia lưới cột & tô màu."),
-    ]
-    lx = 0.55
-    for ltitle, lbody in limits:
-        add_box(slide, lx, 1.68, 3.90, 1.18, fill_color=SURFACE_WHITE, border_color=BORDER_LIGHT, border_pt=1.0, corner_radius=0.06)
-        add_text(slide, lx + 0.16, 1.78, 3.58, 0.30, ltitle, font_size=12.5, bold=True, color=ACCENT_BLUE)
-        add_text(slide, lx + 0.16, 2.10, 3.58, 0.68, lbody, font_size=11.0, color=INK_BODY)
-        lx += 4.15
-
-    # Nửa dưới: 3 Câu hỏi vấn đáp trọng tâm + Vật thể 3D trang trí góc phải
-    add_box(slide, 0.55, 3.08, 8.65, 3.80, fill_color=SURFACE_WHITE, border_color=ACCENT_BLUE, border_pt=1.2, corner_radius=0.05)
-    add_text(slide, 0.78, 3.20, 8.20, 0.34, "TÓM TẮT 3 CÂU HỎI VẤN ĐÁP TRỌNG TÂM KHI BẢO VỆ:", font_size=13.5, bold=True, color=ACCENT_BLUE)
-
-    qa_items = [
-        (
-            "Hỏi 1: Tại sao trong directory.c phải dùng lstat() mà không dùng stat()?\n",
-            "Đáp: Vì stat() đi xuyên qua symlink khiến broken symlink báo lỗi ENOENT và làm cờ đệ quy -R bị lặp vô hạn nếu gặp symlink trỏ ngược lên thư mục cha.",
-        ),
-        (
-            "Hỏi 2: Làm sao chương trình tránh bị tràn File Descriptor và lặp vô hạn khi chạy ./myls -aR?\n",
-            "Đáp: Đọc hết tên tệp vào EntryList rồi gọi closedir() ngay lập tức trước khi đệ quy (chỉ tốn 1 FD). Khi đệ quy, hàm is_recursible_subdir() chặn chặt '.' và '..'.",
-        ),
-        (
-            "Hỏi 3: Tại sao dòng total trong -l phải chia đôi st_blocks và hàm sort -S không dùng phép trừ?\n",
-            "Đáp: st_blocks của Linux tính theo khối 512B còn GNU ls hiển thị khối 1024B nên phải chia 2. Hàm sort -S dùng '>' và '<' để không bị tràn số 64-bit off_t sang int 32-bit.",
-        ),
-    ]
-    add_rich_bullets(slide, 0.78, 3.62, 8.20, 3.10, qa_items, font_size=11.5, lead_color=INK_NAVY, space_after_pt=8)
-
-    # Khung cảm ơn & Vật thể 3D bên phải dưới
-    add_box(slide, 9.45, 3.08, 3.30, 3.80, fill_color=SURFACE_TINT_BLUE, border_color=ACCENT_BLUE, border_pt=1.2, corner_radius=0.06)
-    add_picture_contain(slide, CUTOUTS_DIR / "hero_inode_tree.png", 9.65, 3.22, 2.90, 2.35)
-    add_text(
-        slide,
-        9.60,
-        5.68,
-        3.00,
-        0.55,
-        "Cảm ơn Thầy/Cô đã theo dõi!",
-        font_size=14,
-        bold=True,
-        color=ACCENT_BLUE,
-        align=PP_ALIGN.CENTER,
-    )
-    add_text(
-        slide,
-        9.60,
-        6.18,
-        3.00,
-        0.55,
-        "SV: Nguyễn Xuân Lĩnh\nĐề tài 17 · myls (-a, -l, -R, -S)",
-        font_size=11,
-        bold=False,
-        color=INK_BODY,
-        align=PP_ALIGN.CENTER,
-    )
-
-
-def export_slides_to_png(pptx_path: Path, out_dir: Path):
-    out_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        import win32com.client  # type: ignore
-
-        app = win32com.client.DispatchEx("PowerPoint.Application")
-        try:
-            pres = app.Presentations.Open(str(pptx_path.resolve()), WithWindow=False)
-            try:
-                for idx, slide in enumerate(pres.Slides, start=1):
-                    out_png = out_dir / f"slide_{idx:02d}.png"
-                    slide.Export(str(out_png.resolve()), "PNG", 1920, 1080)
-                print(f"[OK] Exported {pres.Slides.Count} slide PNG previews to {out_dir}")
-            finally:
-                pres.Close()
-        finally:
-            app.Quit()
-    except Exception as exc:
-        print(f"[WARN] PowerPoint COM export failed: {exc}")
-
-
-def main():
-    prs = Presentation()
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
-
-    build_slide_01(prs)
-    build_slide_02(prs)
-    build_slide_03(prs)
-    build_slide_04(prs)
-    build_slide_05(prs)
-    build_slide_06(prs)
-    build_slide_07(prs)
-    build_slide_08(prs)
-    build_slide_09(prs)
-    build_slide_10(prs)
-    build_slide_11(prs)
-    build_slide_12(prs)
-
-    out_pptx = DOCS_DIR / "Slides.pptx"
-    out_pptx.parent.mkdir(parents=True, exist_ok=True)
-    prs.save(str(out_pptx))
-    print(f"[OK] Saved presentation: {out_pptx}")
-
-    export_slides_to_png(out_pptx, PREVIEW_DIR)
-
-
-if __name__ == "__main__":
-    main()
+        for k,w in enumerate([.72,.5,.28]): box(s,x+1.8,2.23+k*.25,w,.12,c)
+    text(s,x,3.53,2.7,.6,title,19,INK,True); text(s,x,4.25,2.9,1.25,body,22); text(s,x,5.9,2.7,.45,api,18,GRAY,mono=True)
+note(s,'40 giây','Giải thích theo quyết định. -a chọn tập entry; -R điều khiển đi xuống; -S đổi thứ tự; -l đổi dạng in. Không đồng nhất hiển thị tệp ẩn với duyệt đệ quy. Vì kết hợp được nên kiểm 16 tổ hợp.','src/options.c; tests/run_tests.sh, Test 01–16')
+
+# 03 — actual output.
+s=new('-a thay tập kết quả, không thay cách duyệt','Cùng một thư mục: thêm -a để thấy các tên bắt đầu bằng dấu chấm.')
+a,_=demo('./myls'); b,_=demo('./myls -a')
+terminal(s,.85,2.05,4.35,4.15,'./myls',a,20); terminal(s,5.48,2.05,4.35,4.15,'./myls -a',b,20)
+art(s,'directory_discovery',10.05,2.16,2.55,2.65,'Kính lúp và lớp giấy mờ gợi việc nhìn thấy các mục ẩn.')
+text(s,10.22,5.0,2.2,1.05,'Tên ẩn\nbắt đầu bằng .',22,CLAY,True)
+text(s,.85,6.43,11.6,.5,'. và .. được in khi có -a; luôn bị loại khỏi bước đệ quy.',23,TEAL,True)
+note(s,'45 giây','Chỉ vào .config_hidden, .env, . và .. ở cột phải. Nhắc rằng hiển thị và duyệt tiếp là hai quyết định. Đầu ra đọc trực tiếp từ JSON của lần chạy hiện tại, không gõ lại.','evidence/demo_session_output.txt')
+
+# 04 — inode graph.
+s=new('Tên tệp không chứa toàn bộ thông tin tệp','readdir() trả tên; lstat() lấy metadata của chính đối tượng tại đường dẫn.')
+text(s,.85,2.0,3.5,.4,'MỤC TRONG THƯ MỤC',16,GRAY,True)
+file(s,.85,2.85,'a.txt'); file(s,.85,4.05,'b.txt'); arrow(s,3.65,3.06,1.05); arrow(s,3.65,4.26,1.05)
+box(s,5,2.7,3.55,2.45,PALE); text(s,5.25,2.95,3,.6,'inode 42',30,TEAL,True,True)
+text(s,5.25,3.73,3.05,1.1,'mode · UID · GID\nsize · mtime · nlink',19,mono=True)
+text(s,9,2.92,3.35,2.3,'Hai hard link\nMột inode\n\nst_nlink = 2',25)
+line(s,.85,5.75,12.45,5.75,RULE,1)
+text(s,.85,6.08,11.7,.55,'struct dirent: tên  →  struct stat: metadata',24,TEAL,True)
+note(s,'60 giây','Hai tên cùng trỏ inode42 minh họa hard link. Inode42 không phải số đo thật. struct dirent không chứa quyền/size/owner. Phân biệt directory entry ở user space và dentry cache kernel. Không dựa riêng d_type vì có thể DT_UNKNOWN.','src/directory.c; man readdir(3), stat(2)')
+
+# 05 — full-width pipeline.
+s=new('Một pipeline cho mọi tổ hợp cờ','Thu thập → sắp xếp → in thư mục hiện tại → duyệt tiếp nếu có -R.')
+for i,(title,module) in enumerate([('Đọc CLI','main + options'),('Thu thập','directory'),('Sắp xếp','sorting'),('Hiển thị','display')]):
+    x=.85+i*3.12; circle(s,x+.6,2.25,i+1,.6,[TEAL,SAGE,CLAY,TEAL][i]); text(s,x,3.15,2.8,.6,title,29,INK,True)
+    text(s,x,3.95,2.8,.5,module,19,GRAY,mono=True)
+    if i<3: arrow(s,x+2.36,3.37,.5)
+box(s,4.1,5.03,8.3,1.55,SOFT_SAGE)
+line(s,11.2,4.7,11.2,5.6,SAGE); line(s,11.2,5.6,4.55,5.6,SAGE); arrow(s,4.3,5.49,.26,SAGE,left=True)
+text(s,5,5.89,6.9,.6,'-R: lặp pipeline cho thư mục con thật',23,TEAL,True)
+text(s,.85,6.56,11.7,.3,'Lỗi → stderr  ·  Exit status chỉ tăng mức nghiêm trọng: 0 → 1 → 2.',18,GRAY)
+note(s,'60 giây','Theo dấu -alRS: getopt nhận flags; main phân loại operands; directory lọc mục/lấy metadata; sorting quyết định thứ tự; display đo cột rồi in. directory gọi lại cho thư mục con theo danh sách đã sort. Mũi tên vòng là lời gọi đệ quy, không phải vòng đọc readdir.')
+
+# 06 — ownership.
+s=new('EntryList sở hữu dữ liệu của mỗi thư mục','Không giữ con trỏ d_name qua lần readdir() kế tiếp; sao chép chuỗi vào heap.')
+art(s,'memory_ownership',.75,2.05,3.5,2.7,'Khay sở hữu ba ngăn, với ba thẻ chuỗi riêng nối từ ngăn đầu.')
+text(s,.95,4.95,3.3,.5,'EntryList',26,SAGE,True,True)
+text(s,.95,5.47,3.4,.4,'items · count · capacity',17,GRAY,mono=True)
+text(s,4.65,2.05,5,.45,'EntryList.items',21,TEAL,True,True)
+for i in range(3):
+    box(s,4.65+i*2.4,2.72,2.4,.95,PALE,RULE); text(s,4.84+i*2.4,3.0,2,.4,f'entry[{i}]',21,INK,True,True)
+text(s,12,2.97,.45,.5,'…',25,TEAL)
+# All three pointers belong to entry[0], not separate entries.
+line(s,5.85,3.67,5.85,4.12); line(s,5.75,4.12,11.05,4.12)
+for x,name in [(4.65,'name'),(7.3,'full_path'),(9.95,'link_target')]:
+    line(s,x+1.1,4.12,x+1.1,4.62); box(s,x,4.62,2.4,.65,WHITE,RULE); text(s,x+.13,4.79,2.16,.36,name,18,mono=True)
+text(s,.85,6.05,5.65,.85,'Sức chứa: 64 → 128 → 256\nKiểm tra tràn trước phép nhân/realloc.',21)
+text(s,7,6.05,5.4,.85,'entry_list_free():\nGiải phóng chuỗi rồi mảng items.',21,SAGE,True)
+note(s,'60 giây','Ba trường name/full_path/link_target thuộc một entry minh họa. link_target chỉ cấp phát khi symlink và cần -l. Dùng con trỏ tạm cho realloc, cleanup mọi cấp phát dở khi push thất bại. Không giữ con trỏ do readdir quản lý. Danh sách cha còn sống trong recursion, không khẳng định RAM chỉ O(depth).')
+
+# 07 — size bars from actual demo.
+s=new('-S: kích thước giảm dần, tên phá hòa','So sánh theo byte; nếu bằng nhau, so tên theo thứ tự byte.')
+size_rows=[]
+for row in demo('./myls -lS')[0]:
+    fields=row.split()
+    if len(fields)>=9 and not row.startswith('total '): size_rows.append((fields[8],int(fields[4])))
+if len(size_rows)!=5: raise ValueError('Unexpected long listing fixture')
+scale=max(v for _,v in size_rows)
+text(s,8.08,1.9,.85,.3,'byte',16,GRAY)
+for i,(name,value) in enumerate(size_rows):
+    y=2.42+i*.65; text(s,.85,y+.01,2.8,.45,name,21,mono=True)
+    box(s,3.75,y,max(.025,value/scale*4.02),.4,TEAL if value!=512 else CLAY)
+    text(s,8.03,y-.04,.95,.45,str(value),21,INK,True,True)
+art(s,'size_ordering',9.15,2.34,3.4,3.4,'Năm tập hồ sơ có kích thước giảm dần; chỉ minh họa, không biểu diễn số đo.')
+text(s,.85,6.04,11.6,.9,'512 = 512 → README.txt trước notes.txt\nSo sánh > / <, tránh trừ hai kích thước gây tràn.',21,TEAL,True)
+note(s,'45 giây','Độ dài thanh tuyến tính theo byte; gốc chung, không ngắt trục. Symlink chỉ10byte vì chuỗi đích, không phải size thư mục đích. Hai tệp512byte dùng strcmp phá hòa. Giá trị đọc từ log, không giả định size thư mục4096 ở mọi máy.','src/sorting.c; evidence/demo_session_output.txt')
+
+# 08 — field dissection.
+s=new('-l biến metadata thành một dòng có cấu trúc','Từng trường trả lời một câu hỏi: loại, quyền, sở hữu, kích thước, thời gian, tên.')
+x=.85
+for i,(token,w,label) in enumerate([('-rwsr-xr-x',2.55,'Loại + quyền'),('1',.6,'n'),('user',1.0,'Owner'),('group',1.2,'Group'),('29',.8,'Bytes'),('Oct 16 10:00',2.55,'mtime'),('main.c',1.45,'Tên')]):
+    box(s,x,2.75,w,.85,[PALE,SOFT_SAGE,SOFT_SAGE,SOFT_SAGE,BLUSH,LILAC,PALE][i]); text(s,x+.07,3.01,w-.14,.45,token,22,INK,True,True)
+    line(s,x+w/2,3.6,x+w/2,4.15,TEAL,1.2); text(s,x,4.32,w,.6,label,17,GRAY,center=True); x+=w+.12
+text(s,.85,5.68,5.6,.95,'Hai lượt: đo độ rộng → in canh cột.\nUID/GID không có tên thì dùng số.',21)
+text(s,7,5.68,5.4,.95,'s = SUID + execute của owner.\nSymlink: thêm “tên → đích”.',21,TEAL,True)
+note(s,'60 giây','Dòng minh họa từng trường, không phải log thực nghiệm. Đọc từ trái qua phải: loại, quyền, hard links, owner/group, byte, mtime, tên. SUID chồng vị trí execute owner: s khi có x, S khi thiếu x. Không dùng size để tính total; total dựa st_blocks. Device dùng major/minor thay size. Phụ lục có chi tiết.','src/display.c')
+
+# 09 — stat vs lstat.
+s=new('lstat() nhìn link; stat() nhìn đối tượng đích','Trong cây -R: giữ metadata của link, không đi vào đích.',tone='EDF0E8')
+art(s,'symbolic_link',.85,2.05,5.9,4.25,'Một thẻ link nối với thư mục đích bằng chuỗi giấy.')
+line(s,7.15,2.18,7.15,5.77,RULE,1)
+text(s,7.55,2.28,4.8,.55,'stat(link_to_src)',26,TEAL,True,True)
+text(s,7.55,3.0,4.8,.95,'Metadata của\nthư mục src_module/',25)
+text(s,7.55,4.35,4.8,.55,'lstat(link_to_src)',26,SAGE,True,True)
+text(s,7.55,5.06,4.8,.95,'Metadata của\nchính symlink',25)
+text(s,.85,6.6,11.6,.4,'Operand CLI trỏ tới thư mục: không -l → duyệt đích; có -l → in link.',20,GRAY)
+note(s,'60 giây','Hai ngữ cảnh khác nhau: symlink gặp trong thư mục không theo -R; symlink là operand CLI có ngoại lệ. Không -l: main dùng stat thử phân loại link tới thư mục. Có -l giữ lstat để in link. Dangling link vẫn lstat được. Không mở rộng kết luận sang -H/-L hay trailing slash.','src/main.c; src/directory.c')
+
+# 10 — recursion map.
+s=new('-R đi theo cây thư mục thật','In thư mục hiện tại → duyệt con đã sắp xếp; không theo symlink.')
+folder(s,1.7,2.15,1); text(s,2.98,2.3,3.2,.5,'demo/',29,INK,True,True); circle(s,.85,2.28,1)
+line(s,2.2,2.88,2.2,5.2)
+for y,title,num in [(3.45,'.config_hidden/',2),(4.67,'src_module/',3)]:
+    line(s,2.2,y+.25,2.95,y+.25); folder(s,2.95,y,.75); text(s,3.95,y+.08,3.7,.5,title,25,INK,True,True); circle(s,7.85,y+.04,num)
+line(s,3.325,5.37,3.325,6.1); line(s,3.325,6.1,3.9,6.1); text(s,4.13,5.85,4.5,.65,'loop_parent → ..',23,GRAY,mono=True)
+art(s,'recursion_garden',8.95,1.85,3.5,2.65,'Các nhánh thư mục và một dải link rẽ ra ngoài cây.')
+box(s,8.95,4.65,3.5,2.0,BLUSH)
+text(s,9.2,4.86,3,.4,'DỪNG TẠI',20,CLAY,True)
+for x,w,label in [(9.2,.4,'.'),(9.9,.6,'..'),(10.72,1.5,'symlink')]:
+    text(s,x,5.42,w,.5,label,22,INK,True,True)
+for x in (9.72,10.55): line(s,x,5.45,x,5.85,'D8C6B9',1)
+text(s,9.2,6.02,3,.5,'Với -aR: in, không đi vào.',17,GRAY)
+note(s,'65 giây','Thứ tự1/2/3 minh họa -aR theo tên. Khi có -S thứ tự con lấy theo size rồi tên. .config_hidden được thăm vì -a. loop_parent dừng vì lstat nhận là link. Không tuyên bố chặn mọi vòng lặp: bind mount chưa có kiểm tra cặp st_dev/st_ino.','src/directory.c, process_directory()')
+
+# 11 — FD lifetime.
+s=new('Đóng DIR* trước khi gọi đệ quy','Giảm descriptor đang mở; dữ liệu cha vẫn còn trong bộ nhớ.')
+for i,label in enumerate(['Cha','Con','Cháu']):
+    y=2.4+i*1.05; x=2.5+i*2.7; text(s,.85,y,1.4,.5,label,24,INK,True)
+    box(s,x-.16,y-.13,3.32,.76,WHITE)
+    box(s,x,y,.92,.48,SOFT_SAGE); text(s,x+.05,y+.08,.84,.32,'open',16,SAGE,True,True)
+    line(s,x+.92,y+.24,x+2.05,y+.24,TEAL,3); box(s,x+2.05,y,.95,.48,BLUSH); text(s,x+2.09,y+.08,.88,.32,'close',16,CLAY,True,True)
+    if i<2: line(s,x+2.53,y+.5,x+2.7,y+1.05,RULE,1.5)
+text(s,.85,6.0,5.5,.85,'FD: không giữ DIR* theo mỗi độ sâu.\nStack lời gọi: vẫn tăng theo độ sâu.',21)
+text(s,7,6.0,5.4,.85,'RAM: tổng EntryList còn sống\ntrên nhánh, cộng chuỗi đường dẫn.',21,TEAL,True)
+note(s,'45 giây','Phân biệt descriptor kernel, stack lời gọi và heap dữ liệu. closedir sau thu thập, trước gọi con. Không có đồng thời một DIR mở cho mỗi tổ tiên, nhưng EntryList tổ tiên vẫn cần để tiếp tục duyệt anh em. Không khẳng định O(1) RAM hay độ sâu không giới hạn.')
+
+# 12 — errors and genuine mixed-operand output.
+s=new('Báo lỗi nhưng vẫn xử lý operand hợp lệ','Mã thoát giữ mức nghiêm trọng cao nhất đã gặp.')
+for i,(n,title,desc,c) in enumerate([('0','Hoàn tất','Không ghi nhận lỗi',TEAL),('1','Lỗi khi duyệt','Entry / thư mục con',GOLD),('2','Lỗi\nnghiêm trọng','CLI · bộ nhớ · stdout',RED)]):
+    x=.85+i*4.05; box(s,x,2.08,.95,.95,[PALE,SOFT_SAGE,BLUSH][i],kind=SH.OVAL)
+    text(s,x,2.11,.95,.85,n,44,c,True,True,True); text(s,x+1.15,2.25,2.65,.9,title,24,INK,True); text(s,x,3.4,3.8,.8,desc,21,GRAY)
+err,rc=demo('./myls missing_path.txt src_module')
+terminal(s,.85,4.32,11.58,2.2,'./myls missing_path.txt src_module',[r for r in err if r.strip()][:4],17)
+text(s,.85,6.64,11.6,.3,f'Demo trả exit {rc}; lỗi ghi stderr, kết quả hợp lệ ghi stdout.',18,TEAL,True)
+note(s,'45 giây','elevate_status dùng max nên không hạ lỗi trước đó. Khung minh chứng gộp hai luồng để đọc, chương trình thật tách stdout và stderr. Log thật có thể hiện stderr trước stdout do buffering. Không so nguyên chuỗi lỗi phụ thuộc locale, kiểm rc và sự hiện diện stderr.','include/myls.h; evidence/demo_session_output.txt')
+
+# 13 — coverage, honest categories.
+s=new('Kiểm chứng cả hành vi lẫn đường lỗi','26 ca đối chiếu GNU ls · 11 ca kiểm hợp đồng, helper và lỗi giả lập.')
+reg,san=data['regular_suite'],data['sanitizer_suite']
+for x,suite,label in [(.85,reg,'Bản thường'),(4.9,san,'ASan + UBSan + LSan')]:
+    text(s,x,2.35,3.65,1.05,f"{suite['passed']} / {suite['total']}",49,TEAL,True); text(s,x,3.56,3.7,.7,label,22,INK,True)
+art(s,'testing_workbench',8.85,2.02,3.55,2.5,'Bàn kiểm thử với laptop và checklist; số liệu kết quả là text thật trên slide.')
+x=.85
+for count,label,c in [(16,'Tổ hợp 4 cờ',TEAL),(10,'GNU: ca biên',SAGE),(11,'Hợp đồng / fault / unit',CLAY)]:
+    w=11.58*count/37; box(s,x,4.87,w,.75,c); text(s,x+.14,5.07,w-.28,.4,str(count),23,WHITE,True)
+    text(s,x,5.89,w-.1,.65,label,19,INK,True); x+=w
+text(s,.85,6.69,11.6,.32,f"Bản thường / sanitizer: FAIL {reg['failed']} / {san['failed']} · SKIP {reg['skipped']} / {san['skipped']}",16,GRAY)
+note(s,'60 giây','Không nói cả37ca đều diff GNU: 16tổ hợp+10ca biên differential;11ca gồm helper và lỗi giả lập. Source hash ràng buộc JSON với source/tests. Các ca lỗi gồm readdir/readlink/closedir/realloc và /dev/full. Không suy không còn bug từ suite hoặc sanitizer PASS.','tests/run_tests.sh; tests/test_internals.c; tests/fault_inject.c; evidence/test_results.json')
+
+# 14 — live demo score.
+s=new('Demo: bốn thay đổi có thể quan sát','Mục ẩn → thứ tự → đệ quy → xử lý lỗi.',tone='EDF0E8')
+art(s,'live_terminal',.65,2.12,3.7,3.8,'Trạm terminal dành cho phần chạy demo trực tiếp.')
+text(s,1.02,6.02,3,.5,'make demo',27,SAGE,True,True)
+for i,(cmd,watch) in enumerate([('./myls → ./myls -a','Xuất hiện mục ẩn, . và ..'),('./myls -lS','Size giảm; hai tệp 512 byte phá hòa theo tên'),('./myls -alRS','Vào thư mục ẩn, không theo link tới ..'),('./myls missing_path.txt src_module','Có lỗi, vẫn in operand hợp lệ; exit 2')]):
+    y=2.08+i*1.13; circle(s,4.65,y,i+1,.44,[TEAL,SAGE,CLAY,TEAL][i]); text(s,5.34,y-.02,7.12,.5,cmd,22,INK,True,True)
+    text(s,5.34,y+.55,7.12,.46,watch,20,GRAY)
+    if i<3: line(s,5.34,y+1.0,12.44,y+1.0,RULE,1)
+note(s,'3 phút','Chuyển terminal chạy make demo. Fixture nằm trong /tmp để tách khỏi quyền của ổ Windows. Không đọc mọi dòng. Dừng ở SUID main.c và loop_parent để giải thích. Nếu terminal trục trặc dùng log evidence/demo_session_output.txt và nói rõ đó là log đã thu, không giả là đang chạy trực tiếp.','tests/run_demo.sh')
+
+# 15 — scope boundaries, three rows.
+s=new('Phạm vi rõ giúp đánh giá kết quả đúng','Tái hiện bốn cờ trong hợp đồng đã công bố; vẫn có khác biệt với GNU ls.')
+for i,(label,yes,no) in enumerate([('HIỂN THỊ','Một tên mỗi dòng; LC_ALL=C, so tên theo byte.','Chưa có nhiều cột, màu, quoting ký tự điều khiển.'),('METADATA','Quyền Unix, link, device, size, time và total.','Chưa có ACL/SELinux; phụ thuộc metadata filesystem.'),('DUYỆT CÂY','Bỏ . / ..; không theo symlink khi đi xuống.','Chưa có tập tổ tiên (st_dev, st_ino) để chặn vòng bind mount.')]):
+    y=2.05+i*1.43; c=[TEAL,SAGE,CLAY][i]
+    box(s,.85,y,.07,1.02,c); text(s,1.1,y,2.15,.55,label,21,c,True); text(s,3.4,y,8.92,.6,yes,22,INK,True); text(s,3.4,y+.65,8.92,.65,no,20,GRAY)
+    if i<2: line(s,3.4,y+1.21,12.42,y+1.21,RULE,1)
+note(s,'45 giây','Nêu giới hạn chủ động. Không nói tương đương toàn bộ GNU. DrvFs phụ thuộc cấu hình metadata, không phải WSL luôn0777. Chưa an toàn trước mọi thay đổi cây đồng thời. Ưu tiên nâng cấp cycle detection, họ hàm *at và hiển thị tên an toàn thay vì thêm cờ lạc đề.')
+
+# 16 — finish.
+s=new('Từ một lệnh quen thuộc đến cơ chế hệ thống',tone='F2EEE4')
+text(s,.85,1.73,7.2,1.65,'Đọc đúng. In đúng.\nGiải phóng đúng.',42,INK,True)
+art(s,'closing_archive',7.85,2.1,4.75,4.45,'Tập hồ sơ, sách và kính lúp kết lại việc tìm hiểu và kiểm chứng chương trình.')
+for i,(title,body) in enumerate([('HÀNH VI','4 cờ, 16 tổ hợp, cả ca lỗi'),('CƠ CHẾ','dirent · stat · heap · descriptor'),('KIỂM CHỨNG','GNU ls + sanitizer + fault injection')]):
+    y=3.75+i*.86; c=[TEAL,SAGE,CLAY][i]
+    line(s,.85,y-.12,7.68,y-.12,RULE,1); text(s,.85,y,2.2,.5,title,18,c,True); text(s,3.1,y,4.6,.72,body,21,INK)
+text(s,.85,6.64,7,.4,'Trao đổi & câu hỏi',22,TEAL)
+note(s,'30 giây','Kết bằng ba năng lực: tái hiện hành vi, lý giải cơ chế, đưa bằng chứng chạy lại được. Không thêm số đo hay tính năng mới ở trang kết. Dùng phụ lục đúng chủ đề khi có câu hỏi.')
+
+
+def grid(s,headers,rows,widths,y=2.1,rowh=.9):
+    x=.85
+    for j,w in enumerate(widths):
+        box(s,x,y,w,.7,PALE); text(s,x+.18,y+.18,w-.36,.42,headers[j],21,INK,True)
+        for i,row in enumerate(rows):
+            yy=y+.7+i*rowh; box(s,x,yy,w,rowh,WHITE if not i%2 else SOFT_SAGE); text(s,x+.14,yy+.22,w-.28,rowh-.25,row[j],21)
+        x+=w
+
+
+s=new('Quyền đặc biệt thay ký tự execute thế nào?','Tệp mẫu main.c được chmod 4755 trong demo.',backup=True)
+grid(s,['Bit đặc biệt','Vị trí','Có x','Không có x'],[['SUID','owner','s','S'],['SGID','group','s','S'],['Sticky','other','t','T']],[3.65,2.5,2.5,2.9])
+text(s,.85,6.0,11.6,.85,'04755 → -rwsr-xr-x\nDùng mask S_ISUID / S_ISGID / S_ISVTX và các bit quyền.',22,TEAL,True)
+note(s,'Dự phòng','Sticky trên thư mục hạn chế xóa/đổi tên entry. SUID executable liên quan quyền thực thi, không phải quyền đọc. SGID thư mục thường cho entry mới kế thừa group. Chỉ format mask, không khẳng định filesystem nào cũng thực thi các bit.','src/display.c, format_mode_string()')
+
+s=new('Size, total và thời gian là ba khái niệm khác nhau',backup=True)
+for i,(title,body) in enumerate([('st_size','Byte logic của một đối tượng'),('st_blocks','Số khối 512 byte đã cấp phát'),('st_mtime','Lần sửa nội dung gần nhất')]):
+    x=.85+i*4.05; circle(s,x,2.22,i+1); text(s,x+.7,2.2,2.9,.55,title,26,INK,True,True); text(s,x,3.18,3.65,1,body,24,GRAY)
+box(s,.85,4.55,11.55,1.42,PALE); text(s,1.15,4.9,10.95,.7,'total (1 KiB) = (Σ st_blocks + 1) / 2',30,INK,True,True)
+text(s,.85,6.25,11.6,.5,'Gần hiện tại: HH:MM; quá nửa năm hoặc ở tương lai: năm. Test cố định TZ=UTC0.',20,GRAY)
+note(s,'Dự phòng','total dùng phép chia nguyên làm tròn lên và các entry được chọn. Sparse file cho thấy st_size không phải allocated bytes. Device hiển thị major/minor. Mốc nửa năm theo code hiện tại, không hỗ trợ TIME_STYLE env.','src/display.c')
+
+s=new('Symlink: phân biệt CLI với mục khi duyệt',backup=True)
+grid(s,['Ngữ cảnh','Không -l','Có -l'],[['Link → thư mục, operand CLI','Liệt kê nội dung đích','In chính link'],['Link đứt, operand CLI','In tên link','In link → chuỗi đích'],['Link gặp trong thư mục -R','Chỉ in tên;\nkhông đệ quy','In link;\nkhông đi xuống']],[5.05,3.1,3.43],rowh=1.05)
+text(s,.85,6.4,11.6,.5,'-R không biến symlink bên trong cây thành cạnh đệ quy.',23,TEAL,True)
+note(s,'Dự phòng','Bảng giới hạn operand không trailing slash, bốn cờ hỗ trợ. -H/-L và các biến thể trailing slash nằm ngoài phạm vi kiểm chứng.','src/main.c; tests/run_tests.sh')
+
+s=new('Fault injection làm đường lỗi có thể tái lập','LD_PRELOAD ép một số lời gọi thất bại theo điều kiện; kiểm cách xử lý của chương trình.',backup=True)
+for i,(name,result) in enumerate([('readdir / closedir','Báo lỗi; giữ mức exit phù hợp'),('readlink / realloc','Dọn dữ liệu dở; không crash'),('/dev/full (stdout)','Phát hiện lỗi ghi và flush; exit 2')]):
+    y=2.2+i*1.28; c=[TEAL,SAGE,CLAY][i]
+    box(s,.85,y,4.1,.75,[PALE,SOFT_SAGE,BLUSH][i]); text(s,1.05,y+.2,3.7,.42,name,23,c,True,True); arrow(s,5.23,y+.25,.8,c); text(s,6.4,y+.05,5.95,.8,result,23)
+text(s,.85,6.43,11.6,.4,'Helper nội bộ: bit quyền, device, total, overflow; cũng được build với sanitizer.',19,TEAL,True)
+note(s,'Dự phòng','Fault injection ép đường lỗi có điều kiện, không mô phỏng đầy đủ lỗi thiết bị vật lý. Test scan cả diagnostics trong stderr đã thu. Helper không thay source production.','tests/fault_inject.c; tests/test_internals.c')
+
+s=new('Chạy trên WSL: chọn đúng nơi tạo fixture',backup=True)
+for x,c,title,body in [(.85,SAGE,'/tmp · Linux filesystem','Fixture tự động ở đây.\nchmod, symlink và special bits\nđược thử trên môi trường Linux.'),(7,TEAL,'/mnt/p · ổ Windows','Có thể lưu và build repo.\nQuyền phụ thuộc DrvFs,\nmount options và metadata.')]:
+    box(s,x+.1,2.04,2.6,.9,SOFT_SAGE if x<2 else PALE)
+    folder(s,x+.35,2.13,1.4,c)
+    box(s,x+2.0,2.2,.4,.52,WHITE,c); line(s,x+1.25,2.72,x+1.91,2.72,c,1.2)
+    text(s,x,3.4,5.4,.65,title,28,c,True); text(s,x,4.35,5.4,1.6,body,24)
+text(s,.85,6.4,11.6,.5,'Không kết luận “WSL luôn hiện 0777”; kiểm mount và cấu hình máy đang chạy.',21,GRAY)
+note(s,'Dự phòng','Không tự sửa wsl.conf. Dùng /tmp cho test quyền; ca skip phải được ghi rõ.','https://learn.microsoft.com/en-us/windows/wsl/file-permissions')
+
+s=new('Đọc tiếp và tái lập từ đúng nguồn','README để chạy; tài liệu kỹ thuật để học; log để kiểm chứng.',backup=True)
+for i,(title,path,body) in enumerate([('Chạy chương trình','README.md','Build · test · sanitizer · demo'),('Hiểu triển khai','docs/TECHNICAL_DEEP_DIVE.md','Khái niệm → trace → cờ → tài nguyên → lỗi'),('Xem minh chứng','evidence/test_results.json','Môi trường · source hash · từng ca · demo')]):
+    y=2.15+i*1.25; c=[TEAL,SAGE,CLAY][i]
+    text(s,.85,y+.02,.55,.6,f'{i+1:02d}',22,c,True,True); text(s,1.6,y,3.08,.6,title,24,c,True); text(s,4.98,y,7.4,.48,path,21,INK,True,True); text(s,4.98,y+.56,7.4,.5,body,20,GRAY)
+text(s,.85,6.15,11.6,.75,'Tham chiếu: GNU Coreutils (ls) · Linux man-pages (stat, readdir, readlink) · Microsoft Learn (WSL).',18,GRAY)
+note(s,'Dự phòng','Một thư mục: thu thập/đo cột O(N), sort thường O(N log N) với qsort đang sử dụng; chuẩn C không cam kết độ phức tạp qsort. Đệ quy giữ tổng EntryList trên nhánh cùng stack. Các URL sau xác minh semantics; repo xác định hành vi cài đặt.','https://www.gnu.org/software/coreutils/manual/html_node/ls-invocation.html ; https://man7.org/linux/man-pages/man2/stat.2.html ; https://man7.org/linux/man-pages/man3/readdir.3.html')
+
+assert len(prs.slides)==22
+prs.core_properties.title='myls — Đề tài 17, Lập trình hệ thống VKU'
+prs.core_properties.subject='16 slide chính + 6 phụ lục; khoảng 18 phút gồm demo'
+prs.core_properties.author=', '.join(m['name'] for m in meta['members']) or 'Nhóm đồ án — chờ danh sách thành viên'
+out=ROOT/'docs/Slides.pptx'; prs.save(out)
+print(f'Generated {out}: 22 slides. Render and inspect before delivery.')

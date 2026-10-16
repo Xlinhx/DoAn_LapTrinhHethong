@@ -1,88 +1,81 @@
 ======================================================================
-  DEMO THỰC TẾ TRÊN UBUNTU 24.04 WSL2 - ĐỀ TÀI 17 (myls -a -l -R -S)
-  Kernel : Linux 6.18.33.2-microsoft-standard-WSL2
-  GCC    : gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+  THÔNG TIN MÔI TRƯỜNG & PHIÊN THỰC NGHIỆM (EXPERIMENTAL METADATA)
+======================================================================
+  Thời điểm ghi nhận (UTC) : 2026-10-16 05:52:04 UTC
+  Hệ điều hành             : Ubuntu 24.04.4 LTS
+  Nhân Linux (Kernel)      : Linux 6.18.33.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun 18 21:54:43 UTC 2026 x86_64
+  Trình biên dịch (C)      : gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+  Đối chuẩn tham chiếu     : ls (GNU coreutils) 9.4
+  Git Revision             : 9d5ab42 (modified (working tree has uncommitted changes))
+  Lệnh thực thi            : make demo
+  Mã thoát (Exit Code)     : 0
+======================================================================
+
+======================================================================
+  DEMO SCENARIO - VKU SYSTEM PROGRAMMING TOPIC 17 (myls -a -l -R -S)
+  Fixture Directory: /tmp/myls_demo_cf5Zbn
 ======================================================================
 
 $ ./myls
-----------------------------------------------------------------------
-config_medium.cfg
-dataset_large.bin
-docs_sub
-latest_data.lnk
-main_sample.c
+README.txt
+database.bin
+link_to_src
+notes.txt
 src_module
+-> Exit code: 0
 
 $ ./myls -a
-----------------------------------------------------------------------
 .
 ..
-.env.hidden
-config_medium.cfg
-dataset_large.bin
-docs_sub
-latest_data.lnk
-main_sample.c
+.config_hidden
+.env
+README.txt
+database.bin
+link_to_src
+notes.txt
 src_module
+-> Exit code: 0
 
-$ ./myls -l
-----------------------------------------------------------------------
-total 24
--rw-r--r-- 1 linhnxdeveloper linhnxdeveloper 1024 Oct 15 18:41 config_medium.cfg
--rw-r--r-- 1 linhnxdeveloper linhnxdeveloper 8192 Oct 15 18:41 dataset_large.bin
-drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 docs_sub
-lrwxrwxrwx 1 linhnxdeveloper linhnxdeveloper   17 Oct 15 18:41 latest_data.lnk -> dataset_large.bin
--rwxr-xr-x 1 linhnxdeveloper linhnxdeveloper   29 Oct 15 18:41 main_sample.c
-drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 src_module
-
-$ ./myls -R
-----------------------------------------------------------------------
-.:
-config_medium.cfg
-dataset_large.bin
-docs_sub
-latest_data.lnk
-main_sample.c
-src_module
-
-./docs_sub:
-guide.md
-
-./src_module:
-engine.o
-
-$ ./myls -S
-----------------------------------------------------------------------
-dataset_large.bin
-docs_sub
-src_module
-config_medium.cfg
-main_sample.c
-latest_data.lnk
+$ ./myls -lS
+total 20
+-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper 8192 Oct 16 05:52 database.bin
+drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 src_module
+-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper  512 Oct 16 05:52 README.txt
+-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper  512 Oct 16 05:52 notes.txt
+lrwxrwxrwx 1 linhnxdeveloper linhnxdeveloper   10 Oct 16 05:52 link_to_src -> src_module
+-> Exit code: 0
 
 $ ./myls -alRS
-----------------------------------------------------------------------
 .:
 total 36
--rw-r--r--  1 linhnxdeveloper linhnxdeveloper 8192 Oct 15 18:41 dataset_large.bin
-drwx------  4 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 .
-drwxrwxrwt 10 root            root            4096 Oct 15 18:41 ..
-drwxr-xr-x  2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 docs_sub
-drwxr-xr-x  2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 src_module
--rw-r--r--  1 linhnxdeveloper linhnxdeveloper 1024 Oct 15 18:41 config_medium.cfg
--rwxr-xr-x  1 linhnxdeveloper linhnxdeveloper   29 Oct 15 18:41 main_sample.c
--rw-r--r--  1 linhnxdeveloper linhnxdeveloper   22 Oct 15 18:41 .env.hidden
-lrwxrwxrwx  1 linhnxdeveloper linhnxdeveloper   17 Oct 15 18:41 latest_data.lnk -> dataset_large.bin
+-rw-r--r--  1 linhnxdeveloper linhnxdeveloper 8192 Oct 16 05:52 database.bin
+drwx------  4 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 .
+drwxrwxrwt 11 root            root            4096 Oct 16 05:52 ..
+drwxr-xr-x  2 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 .config_hidden
+drwxr-xr-x  2 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 src_module
+-rw-r--r--  1 linhnxdeveloper linhnxdeveloper  512 Oct 16 05:52 README.txt
+-rw-r--r--  1 linhnxdeveloper linhnxdeveloper  512 Oct 16 05:52 notes.txt
+-rw-r--r--  1 linhnxdeveloper linhnxdeveloper   15 Oct 16 05:52 .env
+lrwxrwxrwx  1 linhnxdeveloper linhnxdeveloper   10 Oct 16 05:52 link_to_src -> src_module
 
-./docs_sub:
+./.config_hidden:
 total 12
-drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 .
-drwx------ 4 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 ..
--rw-r--r-- 1 linhnxdeveloper linhnxdeveloper   13 Oct 15 18:41 guide.md
+drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 .
+drwx------ 4 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 ..
+-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper   14 Oct 16 05:52 key.conf
 
 ./src_module:
 total 12
-drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 .
-drwx------ 4 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 ..
--rw-r--r-- 1 linhnxdeveloper linhnxdeveloper 4096 Oct 15 18:41 engine.o
+drwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 .
+drwx------ 4 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 ..
+-rwsr-xr-x 1 linhnxdeveloper linhnxdeveloper   29 Oct 16 05:52 main.c
+lrwxrwxrwx 1 linhnxdeveloper linhnxdeveloper    2 Oct 16 05:52 loop_parent -> ..
+-> Exit code: 0
+
+$ ./myls missing_path.txt src_module
+myls: cannot access 'missing_path.txt': No such file or directory
+src_module:
+loop_parent
+main.c
+-> Exit code: 2
 

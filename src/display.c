@@ -1,39 +1,51 @@
 /*
  * src/display.c
- * Module giải mã siêu dữ liệu Inode và hiển thị kết quả ra stdout.
+ * Module giải mã siêu dữ liệu và hiển thị kết quả ra stdout.
  *
  * Giải thích tuần tự các cơ chế cốt lõi:
- * 1. Giải mã 16-bit `st_mode` thành chuỗi 10 ký tự (ví dụ: "-rwxr-xr-x", "drwxrwsr-t"):
- *    - 4 bit cao (S_IFMT) xác định loại tệp: '-', 'd', 'l', 'c', 'b', 'p', 's'.
- *    - 9 bit thấp xác định quyền rwx cho User, Group, Others.
- *    - 3 bit đặc biệt (S_ISUID = 04000, S_ISGID = 02000, S_ISVTX = 01000) ghi đè lên
- *      vị trí 'x' tương ứng thành 's'/'S' hoặc 't'/'T'.
+ * 1. Giải mã các bit loại tệp và quyền truy cập trong `st_mode` thành chuỗi 10 ký tự:
+ *    - Phần loại tệp (`S_IFMT`) xác định ký tự đầu: '-', 'd', 'l', 'c', 'b', 'p', 's'.
+ *    - 9 bit quyền cơ bản xác định rwx cho User, Group, Others.
+ *    - 3 bit đặc biệt (S_ISUID = 04000, S_ISGID = 02000, S_ISVTX = 01000) kết hợp với
+ *      bit thực thi tương ứng tạo thành 's'/'S' hoặc 't'/'T'.
  * 2. Chuyển đổi UID/GID sang tên người dùng và tên nhóm:
- *    - Dùng `getpwuid()` và `getgrgid()`. Nếu UID/GID không có trong `/etc/passwd`
- *      hoặc `/etc/group` (trả về NULL), tự động in mã số nguyên để không bao giờ bị lỗi
- *      Segmentation Fault.
- * 3. Quy tắc định dạng thời gian 6 tháng của POSIX:
- *    - Nếu thời gian sửa đổi `st_mtime` cách thời điểm hiện tại chưa quá 6 tháng:
- *      in "Tháng Ngày Giờ:Phút" (ví dụ: "Oct 16 01:30").
- *    - Nếu tệp cũ hơn 6 tháng hoặc có timestamp trong tương lai:
- *      in "Tháng Ngày  Năm" (ví dụ: "Jan  5  2024").
+ *    - Dùng `getpwuid()` và `getgrgid()`. Nếu không tìm thấy tên trong cơ sở dữ liệu
+ *      hệ thống (trả về NULL), in mã số UID/GID nguyên bản.
+ * 3. Hiển thị kích thước hoặc cặp `major, minor` cho tệp thiết bị:
+ *    - Tệp thông thường in `st_size`.
+ *    - Character device (`S_ISCHR`) và Block device (`S_ISBLK`) in `major(st_rdev), minor(st_rdev)`
+ *      và tự động đồng bộ độ rộng cột khi trộn chung với tệp thường.
  * 4. Đơn vị khối `total` trong chế độ `-l`:
- *    - Trường `st_blocks` trong `struct stat` của Linux luôn đếm theo đơn vị 512-byte.
- *    - Lệnh `ls -l` chuẩn GNU hiển thị `total` theo đơn vị 1024-byte (1K blocks).
- *    - Do đó: `total_1k = total_blocks_512 / 2`.
+ *    - `st_blocks` trong `struct stat` đếm theo đơn vị 512-byte.
+ *    - Chốt hiển thị `total` theo đơn vị 1 KiB (1024-byte) có làm tròn lên:
+ *      `total_1k = (total_blocks_512 + 1) / 2`.
+ * 5. Kiểm tra lỗi ghi stdout (`ferror` và `fflush`):
+ *    - Phát hiện lỗi ghi thiết bị (như `/dev/full` báo `ENOSPC`), thông báo ra `stderr`
+ *      và trả mã thoát nghiêm trọng `2`.
  */
 
 #include "myls.h"
 
+#include <errno.h>
 #include <grp.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sysmacros.h>
 #include <time.h>
 
-/* Khoảng thời gian 6 tháng tính bằng giây theo chuẩn GNU coreutils (~365.2425 / 2 ngày) */
+/* Khoảng thời gian 6 tháng tính bằng giây (~365.2425 / 2 ngày) */
 #define SIX_MONTHS_SECONDS (15778476L)
+
+static int g_stdout_errno = 0;
+
+static void record_stdout_error(void)
+{
+    if (g_stdout_errno == 0) {
+        g_stdout_errno = (errno != 0) ? errno : EIO;
+    }
+}
 
 /* Bảng tên tháng chuẩn C Locale để không bị phụ thuộc biến môi trường LC_TIME */
 static const char *const MONTH_NAMES[12] = {
@@ -154,13 +166,11 @@ static void format_mtime_string(time_t mtime, time_t now, char out_buf[32])
     }
 }
 
-static void compute_column_widths(const EntryList *list, ColumnWidths *widths)
+static void accumulate_list_widths(const EntryList *list, ColumnWidths *widths, bool count_blocks)
 {
-    widths->nlink_width = 1;
-    widths->owner_width = 1;
-    widths->group_width = 1;
-    widths->size_width = 1;
-    widths->total_blocks_512 = 0;
+    if (list == NULL) {
+        return;
+    }
 
     char owner_buf[64];
     char group_buf[64];
@@ -171,7 +181,9 @@ static void compute_column_widths(const EntryList *list, ColumnWidths *widths)
             continue;
         }
 
-        widths->total_blocks_512 += e->st.st_blocks;
+        if (count_blocks) {
+            widths->total_blocks_512 += e->st.st_blocks;
+        }
 
         int nl_w = num_digits_ull((unsigned long long)e->st.st_nlink);
         if (nl_w > widths->nlink_width) {
@@ -190,34 +202,90 @@ static void compute_column_widths(const EntryList *list, ColumnWidths *widths)
             widths->group_width = gr_w;
         }
 
-        int sz_w = num_digits_ll((long long)e->st.st_size);
-        if (sz_w > widths->size_width) {
-            widths->size_width = sz_w;
+        if (S_ISCHR(e->st.st_mode) || S_ISBLK(e->st.st_mode)) {
+            widths->has_device = true;
+            unsigned int maj = (unsigned int)major(e->st.st_rdev);
+            unsigned int min = (unsigned int)minor(e->st.st_rdev);
+            int maj_w = num_digits_ull((unsigned long long)maj);
+            int min_w = num_digits_ull((unsigned long long)min);
+            if (maj_w > widths->major_width) {
+                widths->major_width = maj_w;
+            }
+            if (min_w > widths->minor_width) {
+                widths->minor_width = min_w;
+            }
+        } else {
+            int sz_w = num_digits_ll((long long)e->st.st_size);
+            if (sz_w > widths->size_width) {
+                widths->size_width = sz_w;
+            }
         }
     }
 }
 
-void display_entries(const EntryList *list, const LsOptions *opts, bool is_directory_listing)
+static void finalize_device_widths(ColumnWidths *widths)
+{
+    if (widths->has_device) {
+        int dev_w = widths->major_width + 2 + widths->minor_width;
+        if (dev_w > widths->size_width) {
+            widths->size_width = dev_w;
+        }
+        int padded_major = widths->size_width - 2 - widths->minor_width;
+        if (padded_major > widths->major_width) {
+            widths->major_width = padded_major;
+        }
+    }
+}
+
+void compute_column_widths(const EntryList *list, ColumnWidths *widths)
+{
+    widths->nlink_width = 1;
+    widths->owner_width = 1;
+    widths->group_width = 1;
+    widths->size_width = 1;
+    widths->major_width = 1;
+    widths->minor_width = 1;
+    widths->has_device = false;
+    widths->total_blocks_512 = 0;
+
+    accumulate_list_widths(list, widths, true);
+    finalize_device_widths(widths);
+}
+
+static bool display_entries_internal(const EntryList *list, const EntryList *aux_width_list,
+                                     const LsOptions *opts, bool is_directory_listing)
 {
     if (list == NULL || opts == NULL) {
-        return;
+        return true;
     }
 
-    /* Chế độ mặc định (không bật -l): In danh sách tên tệp */
+    /* Chế độ mặc định (không bật -l): In một entry trên mỗi dòng */
     if (!opts->opt_l) {
         for (size_t i = 0; i < list->count; i++) {
-            printf("%s\n", list->items[i].name);
+            errno = 0;
+            if (printf("%s\n", list->items[i].name) < 0) {
+                record_stdout_error();
+                return false;
+            }
         }
-        return;
+        return true;
     }
 
-    /* Chế độ chi tiết (-l): Tính độ rộng từng cột và dòng total */
+    /* Chế độ chi tiết (-l): Tính độ rộng từng cột và dòng total 1 KiB */
     ColumnWidths widths;
     compute_column_widths(list, &widths);
+    if (aux_width_list != NULL) {
+        accumulate_list_widths(aux_width_list, &widths, false);
+        finalize_device_widths(&widths);
+    }
 
     if (is_directory_listing) {
-        long long total_1k = (long long)(widths.total_blocks_512 / 2);
-        printf("total %lld\n", total_1k);
+        long long total_1k = (long long)((widths.total_blocks_512 + 1) / 2);
+        errno = 0;
+        if (printf("total %lld\n", total_1k) < 0) {
+            record_stdout_error();
+            return false;
+        }
     }
 
     time_t now = time(NULL);
@@ -237,18 +305,75 @@ void display_entries(const EntryList *list, const LsOptions *opts, bool is_direc
         get_group_name(e->st.st_gid, group_buf, sizeof(group_buf));
         format_mtime_string(e->st.st_mtime, now, time_buf);
 
-        printf("%s %*lu %-*s %-*s %*lld %s %s",
-               mode_str,
-               widths.nlink_width, (unsigned long)e->st.st_nlink,
-               widths.owner_width, owner_buf,
-               widths.group_width, group_buf,
-               widths.size_width, (long long)e->st.st_size,
-               time_buf,
-               e->name);
-
-        if (S_ISLNK(e->st.st_mode) && e->link_target[0] != '\0') {
-            printf(" -> %s", e->link_target);
+        errno = 0;
+        int rc;
+        if (S_ISCHR(e->st.st_mode) || S_ISBLK(e->st.st_mode)) {
+            unsigned int maj = (unsigned int)major(e->st.st_rdev);
+            unsigned int min = (unsigned int)minor(e->st.st_rdev);
+            rc = printf("%s %*lu %-*s %-*s %*u, %*u %s %s",
+                        mode_str,
+                        widths.nlink_width, (unsigned long)e->st.st_nlink,
+                        widths.owner_width, owner_buf,
+                        widths.group_width, group_buf,
+                        widths.major_width, maj,
+                        widths.minor_width, min,
+                        time_buf,
+                        e->name);
+        } else {
+            rc = printf("%s %*lu %-*s %-*s %*lld %s %s",
+                        mode_str,
+                        widths.nlink_width, (unsigned long)e->st.st_nlink,
+                        widths.owner_width, owner_buf,
+                        widths.group_width, group_buf,
+                        widths.size_width, (long long)e->st.st_size,
+                        time_buf,
+                        e->name);
         }
-        printf("\n");
+
+        if (rc < 0) {
+            record_stdout_error();
+            return false;
+        }
+
+        if (S_ISLNK(e->st.st_mode) && e->link_target != NULL && e->link_target[0] != '\0') {
+            errno = 0;
+            if (printf(" -> %s", e->link_target) < 0) {
+                record_stdout_error();
+                return false;
+            }
+        }
+
+        errno = 0;
+        if (printf("\n") < 0) {
+            record_stdout_error();
+            return false;
+        }
     }
+
+    return true;
+}
+
+bool display_entries(const EntryList *list, const LsOptions *opts, bool is_directory_listing)
+{
+    return display_entries_internal(list, NULL, opts, is_directory_listing);
+}
+
+bool display_cli_files(const EntryList *file_list, const EntryList *dir_list, const LsOptions *opts)
+{
+    return display_entries_internal(file_list, dir_list, opts, false);
+}
+
+bool flush_and_check_stdout(void)
+{
+    errno = 0;
+    int flush_rc = fflush(stdout);
+    if (flush_rc != 0) {
+        record_stdout_error();
+    }
+    if (ferror(stdout) || flush_rc != 0 || g_stdout_errno != 0) {
+        int err = (g_stdout_errno != 0) ? g_stdout_errno : ((errno != 0) ? errno : EIO);
+        fprintf(stderr, "myls: write error: %s\n", strerror(err));
+        return false;
+    }
+    return true;
 }

@@ -1,0 +1,410 @@
+{
+  "execution_root": "isolated Linux /tmp copy of src, include, tests and Makefile",
+  "source_sha256": "08872fd439a844f548f91325582e47dd4edebee6f39a2fedafccec97ee0326e0",
+  "timestamp_utc": "2026-10-16 05:52:04 UTC",
+  "environment": {
+    "GCC_VER": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "KERNEL_VER": "Linux 6.18.33.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun 18 21:54:43 UTC 2026 x86_64",
+    "OS_NAME": "Ubuntu 24.04.4 LTS",
+    "COREUTILS_VER": "ls (GNU coreutils) 9.4",
+    "GIT_REV": "9d5ab42",
+    "GIT_TREE": "modified (working tree has uncommitted changes)"
+  },
+  "regular_suite": {
+    "command": "make -B && make test",
+    "exit_code": 0,
+    "passed": 37,
+    "failed": 0,
+    "skipped": 0,
+    "total": 37,
+    "cases": [
+      {
+        "status": "PASS",
+        "id": 1,
+        "description": "Flag combo 01/16: (none) default listing"
+      },
+      {
+        "status": "PASS",
+        "id": 2,
+        "description": "Flag combo 02/16: -a (all entries)"
+      },
+      {
+        "status": "PASS",
+        "id": 3,
+        "description": "Flag combo 03/16: -l (long format)"
+      },
+      {
+        "status": "PASS",
+        "id": 4,
+        "description": "Flag combo 04/16: -R (recursive)"
+      },
+      {
+        "status": "PASS",
+        "id": 5,
+        "description": "Flag combo 05/16: -S (size sort descending)"
+      },
+      {
+        "status": "PASS",
+        "id": 6,
+        "description": "Flag combo 06/16: -al"
+      },
+      {
+        "status": "PASS",
+        "id": 7,
+        "description": "Flag combo 07/16: -aR (with . / .. / loop symlink guard)"
+      },
+      {
+        "status": "PASS",
+        "id": 8,
+        "description": "Flag combo 08/16: -aS"
+      },
+      {
+        "status": "PASS",
+        "id": 9,
+        "description": "Flag combo 09/16: -lR"
+      },
+      {
+        "status": "PASS",
+        "id": 10,
+        "description": "Flag combo 10/16: -lS (sparse 2.5GiB + tie-break)"
+      },
+      {
+        "status": "PASS",
+        "id": 11,
+        "description": "Flag combo 11/16: -RS"
+      },
+      {
+        "status": "PASS",
+        "id": 12,
+        "description": "Flag combo 12/16: -alR"
+      },
+      {
+        "status": "PASS",
+        "id": 13,
+        "description": "Flag combo 13/16: -alS"
+      },
+      {
+        "status": "PASS",
+        "id": 14,
+        "description": "Flag combo 14/16: -aRS"
+      },
+      {
+        "status": "PASS",
+        "id": 15,
+        "description": "Flag combo 15/16: -lRS"
+      },
+      {
+        "status": "PASS",
+        "id": 16,
+        "description": "Flag combo 16/16: -alRS (all four flags)"
+      },
+      {
+        "status": "PASS",
+        "id": 17,
+        "description": "Separated and reordered flags (-S -R -l -a)"
+      },
+      {
+        "status": "PASS",
+        "id": 18,
+        "description": "Empty directory with -l and -la"
+      },
+      {
+        "status": "PASS",
+        "id": 19,
+        "description": "Directory > 64 entries (80 files capacity growth)"
+      },
+      {
+        "status": "PASS",
+        "id": 20,
+        "description": "Filename starting with '-' using '--' separator"
+      },
+      {
+        "status": "PASS",
+        "id": 21,
+        "description": "FIFO and Unix domain socket in -l"
+      },
+      {
+        "status": "PASS",
+        "id": 22,
+        "description": "Symlink CLI operand without -l (follows to dir)"
+      },
+      {
+        "status": "PASS",
+        "id": 23,
+        "description": "Symlink CLI operand with -l vs trailing slash"
+      },
+      {
+        "status": "PASS",
+        "id": 24,
+        "description": "Broken symlink CLI operand without trailing slash"
+      },
+      {
+        "status": "PASS",
+        "id": 25,
+        "description": "Character device /dev/null mixed with regular file"
+      },
+      {
+        "status": "PASS",
+        "id": 26,
+        "description": "Multiple mixed CLI operands (files + directories)"
+      },
+      {
+        "status": "PASS",
+        "id": 27,
+        "description": "Internal unit tests (block device major/minor, 1KiB rounding, overflow guard)"
+      },
+      {
+        "status": "PASS",
+        "id": 28,
+        "description": "Non-existent CLI operand returns exit status 2 and stderr diagnostic"
+      },
+      {
+        "status": "PASS",
+        "id": 29,
+        "description": "Broken symlink with trailing slash (broken_symlink/) returns exit status 2"
+      },
+      {
+        "status": "PASS",
+        "id": 30,
+        "description": "Unreadable CLI directory operand returns exit status 2 and continues remaining operands"
+      },
+      {
+        "status": "PASS",
+        "id": 31,
+        "description": "Unreadable subdirectory during -R returns exit status 1 and continues traversal"
+      },
+      {
+        "status": "PASS",
+        "id": 32,
+        "description": "Mixed CLI error (2) + subdirectory error (1) preserves highest exit status 2"
+      },
+      {
+        "status": "PASS",
+        "id": 33,
+        "description": "Invalid option (-z) rejected with exit status 2"
+      },
+      {
+        "status": "PASS",
+        "id": 34,
+        "description": "Stdout write error (/dev/full) detected on flush with exit status 2"
+      },
+      {
+        "status": "PASS",
+        "id": 35,
+        "description": "Fault injection: readdir() EIO handled cleanly with exit status 1"
+      },
+      {
+        "status": "PASS",
+        "id": 36,
+        "description": "Fault injection: readlink() EIO retains entry metadata and returns exit status 1"
+      },
+      {
+        "status": "PASS",
+        "id": 37,
+        "description": "Fault injection: closedir() EIO (exit 1) and realloc() ENOMEM (exit 2) handled safely"
+      }
+    ]
+  },
+  "sanitizer_suite": {
+    "cases": [
+      {
+        "status": "PASS",
+        "id": 1,
+        "description": "Flag combo 01/16: (none) default listing"
+      },
+      {
+        "status": "PASS",
+        "id": 2,
+        "description": "Flag combo 02/16: -a (all entries)"
+      },
+      {
+        "status": "PASS",
+        "id": 3,
+        "description": "Flag combo 03/16: -l (long format)"
+      },
+      {
+        "status": "PASS",
+        "id": 4,
+        "description": "Flag combo 04/16: -R (recursive)"
+      },
+      {
+        "status": "PASS",
+        "id": 5,
+        "description": "Flag combo 05/16: -S (size sort descending)"
+      },
+      {
+        "status": "PASS",
+        "id": 6,
+        "description": "Flag combo 06/16: -al"
+      },
+      {
+        "status": "PASS",
+        "id": 7,
+        "description": "Flag combo 07/16: -aR (with . / .. / loop symlink guard)"
+      },
+      {
+        "status": "PASS",
+        "id": 8,
+        "description": "Flag combo 08/16: -aS"
+      },
+      {
+        "status": "PASS",
+        "id": 9,
+        "description": "Flag combo 09/16: -lR"
+      },
+      {
+        "status": "PASS",
+        "id": 10,
+        "description": "Flag combo 10/16: -lS (sparse 2.5GiB + tie-break)"
+      },
+      {
+        "status": "PASS",
+        "id": 11,
+        "description": "Flag combo 11/16: -RS"
+      },
+      {
+        "status": "PASS",
+        "id": 12,
+        "description": "Flag combo 12/16: -alR"
+      },
+      {
+        "status": "PASS",
+        "id": 13,
+        "description": "Flag combo 13/16: -alS"
+      },
+      {
+        "status": "PASS",
+        "id": 14,
+        "description": "Flag combo 14/16: -aRS"
+      },
+      {
+        "status": "PASS",
+        "id": 15,
+        "description": "Flag combo 15/16: -lRS"
+      },
+      {
+        "status": "PASS",
+        "id": 16,
+        "description": "Flag combo 16/16: -alRS (all four flags)"
+      },
+      {
+        "status": "PASS",
+        "id": 17,
+        "description": "Separated and reordered flags (-S -R -l -a)"
+      },
+      {
+        "status": "PASS",
+        "id": 18,
+        "description": "Empty directory with -l and -la"
+      },
+      {
+        "status": "PASS",
+        "id": 19,
+        "description": "Directory > 64 entries (80 files capacity growth)"
+      },
+      {
+        "status": "PASS",
+        "id": 20,
+        "description": "Filename starting with '-' using '--' separator"
+      },
+      {
+        "status": "PASS",
+        "id": 21,
+        "description": "FIFO and Unix domain socket in -l"
+      },
+      {
+        "status": "PASS",
+        "id": 22,
+        "description": "Symlink CLI operand without -l (follows to dir)"
+      },
+      {
+        "status": "PASS",
+        "id": 23,
+        "description": "Symlink CLI operand with -l vs trailing slash"
+      },
+      {
+        "status": "PASS",
+        "id": 24,
+        "description": "Broken symlink CLI operand without trailing slash"
+      },
+      {
+        "status": "PASS",
+        "id": 25,
+        "description": "Character device /dev/null mixed with regular file"
+      },
+      {
+        "status": "PASS",
+        "id": 26,
+        "description": "Multiple mixed CLI operands (files + directories)"
+      },
+      {
+        "status": "PASS",
+        "id": 27,
+        "description": "Internal unit tests (block device major/minor, 1KiB rounding, overflow guard)"
+      },
+      {
+        "status": "PASS",
+        "id": 28,
+        "description": "Non-existent CLI operand returns exit status 2 and stderr diagnostic"
+      },
+      {
+        "status": "PASS",
+        "id": 29,
+        "description": "Broken symlink with trailing slash (broken_symlink/) returns exit status 2"
+      },
+      {
+        "status": "PASS",
+        "id": 30,
+        "description": "Unreadable CLI directory operand returns exit status 2 and continues remaining operands"
+      },
+      {
+        "status": "PASS",
+        "id": 31,
+        "description": "Unreadable subdirectory during -R returns exit status 1 and continues traversal"
+      },
+      {
+        "status": "PASS",
+        "id": 32,
+        "description": "Mixed CLI error (2) + subdirectory error (1) preserves highest exit status 2"
+      },
+      {
+        "status": "PASS",
+        "id": 33,
+        "description": "Invalid option (-z) rejected with exit status 2"
+      },
+      {
+        "status": "PASS",
+        "id": 34,
+        "description": "Stdout write error (/dev/full) detected on flush with exit status 2"
+      },
+      {
+        "status": "PASS",
+        "id": 35,
+        "description": "Fault injection: readdir() EIO handled cleanly with exit status 1"
+      },
+      {
+        "status": "PASS",
+        "id": 36,
+        "description": "Fault injection: readlink() EIO retains entry metadata and returns exit status 1"
+      },
+      {
+        "status": "PASS",
+        "id": 37,
+        "description": "Fault injection: closedir() EIO (exit 1) and realloc() ENOMEM (exit 2) handled safely"
+      }
+    ],
+    "command": "make sanitize",
+    "exit_code": 0,
+    "passed": 37,
+    "failed": 0,
+    "skipped": 0,
+    "total": 37,
+    "diagnostics": "Không có cảnh báo hoặc lỗi phát sinh từ ASan/UBSan/LSan trên stderr.",
+    "statement": "Không phát hiện lỗi bộ nhớ trong các kịch bản đã chạy bằng GCC AddressSanitizer, LeakSanitizer và UndefinedBehaviorSanitizer trên toàn bộ 37 kịch bản kiểm thử."
+  },
+  "demo_run": {
+    "command": "make demo",
+    "exit_code": 0,
+    "raw_output": "======================================================================\n  DEMO SCENARIO - VKU SYSTEM PROGRAMMING TOPIC 17 (myls -a -l -R -S)\n  Fixture Directory: /tmp/myls_demo_cf5Zbn\n======================================================================\n\n$ ./myls\nREADME.txt\ndatabase.bin\nlink_to_src\nnotes.txt\nsrc_module\n-> Exit code: 0\n\n$ ./myls -a\n.\n..\n.config_hidden\n.env\nREADME.txt\ndatabase.bin\nlink_to_src\nnotes.txt\nsrc_module\n-> Exit code: 0\n\n$ ./myls -lS\ntotal 20\n-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper 8192 Oct 16 05:52 database.bin\ndrwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 src_module\n-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper  512 Oct 16 05:52 README.txt\n-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper  512 Oct 16 05:52 notes.txt\nlrwxrwxrwx 1 linhnxdeveloper linhnxdeveloper   10 Oct 16 05:52 link_to_src -> src_module\n-> Exit code: 0\n\n$ ./myls -alRS\n.:\ntotal 36\n-rw-r--r--  1 linhnxdeveloper linhnxdeveloper 8192 Oct 16 05:52 database.bin\ndrwx------  4 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 .\ndrwxrwxrwt 11 root            root            4096 Oct 16 05:52 ..\ndrwxr-xr-x  2 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 .config_hidden\ndrwxr-xr-x  2 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 src_module\n-rw-r--r--  1 linhnxdeveloper linhnxdeveloper  512 Oct 16 05:52 README.txt\n-rw-r--r--  1 linhnxdeveloper linhnxdeveloper  512 Oct 16 05:52 notes.txt\n-rw-r--r--  1 linhnxdeveloper linhnxdeveloper   15 Oct 16 05:52 .env\nlrwxrwxrwx  1 linhnxdeveloper linhnxdeveloper   10 Oct 16 05:52 link_to_src -> src_module\n\n./.config_hidden:\ntotal 12\ndrwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 .\ndrwx------ 4 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 ..\n-rw-r--r-- 1 linhnxdeveloper linhnxdeveloper   14 Oct 16 05:52 key.conf\n\n./src_module:\ntotal 12\ndrwxr-xr-x 2 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 .\ndrwx------ 4 linhnxdeveloper linhnxdeveloper 4096 Oct 16 05:52 ..\n-rwsr-xr-x 1 linhnxdeveloper linhnxdeveloper   29 Oct 16 05:52 main.c\nlrwxrwxrwx 1 linhnxdeveloper linhnxdeveloper    2 Oct 16 05:52 loop_parent -> ..\n-> Exit code: 0\n\n$ ./myls missing_path.txt src_module\nmyls: cannot access 'missing_path.txt': No such file or directory\nsrc_module:\nloop_parent\nmain.c\n-> Exit code: 2\n\n"
+  }
+}

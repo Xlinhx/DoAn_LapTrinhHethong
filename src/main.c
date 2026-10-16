@@ -2,18 +2,21 @@
  * src/main.c
  * Điểm vào chính (Entry Point) điều phối luồng thực thi của chương trình myls.
  *
- * Quy trình xử lý đa đường dẫn theo chuẩn POSIX:
+ * Quy trình xử lý đa đường dẫn và phân loại mã thoát:
  * 1. Phân tích các cờ dòng lệnh (-a, -l, -R, -S) qua `parse_options()`.
  * 2. Nếu người dùng không truyền đường dẫn nào, mặc định duyệt thư mục hiện tại `"."`.
  * 3. Nếu người dùng truyền 1 hoặc nhiều đường dẫn (hỗn hợp cả tệp và thư mục):
- *    - Kiểm tra từng đường dẫn bằng `lstat()`.
- *    - Nếu là Symbolic Link trỏ tới thư mục và KHÔNG bật cờ `-l`, chuẩn POSIX quy định
- *      đi vào liệt kê nội dung thư mục đích (dùng `stat()` để kiểm tra đích).
+ *    - Kiểm tra từng đường dẫn bằng `lstat()`. Nếu đối số CLI không truy cập được,
+ *      in thông báo lỗi ra stderr và nâng mã thoát lên `EXIT_LS_SERIOUS_ERR` (2).
+ *    - Nếu là Symbolic Link trỏ tới thư mục và KHÔNG bật cờ `-l` (hoặc có dấu `/` cuối),
+ *      đi vào liệt kê nội dung thư mục đích.
  *    - Phân tách thành 2 danh sách độc lập:
  *      + `file_list`: Chứa các tệp đơn lẻ (hiển thị trước, không in dòng `total`).
  *      + `dir_list`:  Chứa các thư mục (hiển thị sau, ngăn cách bằng dòng trống).
  * 4. Quyết định in tiêu đề `<dir_path>:`:
  *    - Chỉ in tiêu đề khi bật `-R` HOẶC khi tổng số đường dẫn truyền vào > 1.
+ * 5. Cuối chương trình, kiểm tra `flush_and_check_stdout()` để bắt mọi lỗi ghi stdout
+ *    (ví dụ khi chuyển hướng ra `/dev/full`), trả mã thoát `2` nếu thất bại.
  */
 
 #include "myls.h"
@@ -82,9 +85,7 @@ int main(int argc, char *argv[])
         struct stat lst;
         if (lstat(p, &lst) != 0) {
             fprintf(stderr, "myls: cannot access '%s': %s\n", p, strerror(errno));
-            if (exit_status == EXIT_LS_OK) {
-                exit_status = EXIT_LS_MINOR_ERR;
-            }
+            elevate_status(&exit_status, EXIT_LS_SERIOUS_ERR);
             continue;
         }
 
@@ -96,10 +97,9 @@ int main(int argc, char *argv[])
                 return EXIT_LS_SERIOUS_ERR;
             }
         } else {
-            if (!populate_file_entry(p, p, opts.opt_l, &file_list)) {
-                if (exit_status == EXIT_LS_OK) {
-                    exit_status = EXIT_LS_MINOR_ERR;
-                }
+            int pop_rc = populate_file_entry(p, p, opts.opt_l, EXIT_LS_SERIOUS_ERR, &file_list);
+            if (pop_rc != EXIT_LS_OK) {
+                elevate_status(&exit_status, pop_rc);
             }
         }
     }
@@ -109,7 +109,9 @@ int main(int argc, char *argv[])
     /* 1. Hiển thị toàn bộ các tệp đơn lẻ trước (nếu có) */
     if (file_list.count > 0) {
         sort_entries(&file_list, &opts);
-        display_entries(&file_list, &opts, false);
+        if (!display_cli_files(&file_list, &dir_list, &opts)) {
+            elevate_status(&exit_status, EXIT_LS_SERIOUS_ERR);
+        }
         first_section = false;
     }
 
@@ -120,11 +122,16 @@ int main(int argc, char *argv[])
 
         for (size_t i = 0; i < dir_list.count; i++) {
             process_directory(dir_list.items[i].full_path, &opts,
-                              print_headers, &first_section, &exit_status);
+                              print_headers, true, &first_section, &exit_status);
         }
     }
 
     entry_list_free(&file_list);
     entry_list_free(&dir_list);
+
+    if (!flush_and_check_stdout()) {
+        elevate_status(&exit_status, EXIT_LS_SERIOUS_ERR);
+    }
+
     return exit_status;
 }

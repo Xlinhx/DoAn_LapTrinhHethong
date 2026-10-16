@@ -7,8 +7,8 @@
  *    - Các cờ viết rời: ./myls -a -l -R -S
  *    - Các cờ viết gộp: ./myls -alRS, ./myls -la, ./myls -SR
  *    - Ký hiệu "--" để báo kết thúc phần cờ (hỗ trợ liệt kê tệp có tên bắt đầu bằng '-').
- * 2. Nếu người dùng truyền cờ không thuộc {a, l, R, S} (hoặc --help), chương trình
- *    trả về mã thoát EXIT_LS_SERIOUS_ERR (2) theo đúng chuẩn POSIX.
+ * 2. Nếu người dùng truyền cờ không thuộc {a, l, R, S}, chương trình in thông báo lỗi
+ *    ra stderr và trả về mã thoát EXIT_LS_SERIOUS_ERR (2).
  */
 
 #include "myls.h"
@@ -53,6 +53,9 @@ int parse_options(int argc, char *argv[], LsOptions *opts, int *first_path_idx)
         }
         if (strcmp(argv[i], "--help") == 0) {
             print_usage(argv[0], false);
+            if (!flush_and_check_stdout()) {
+                exit(EXIT_LS_SERIOUS_ERR);
+            }
             exit(EXIT_LS_OK);
         }
     }

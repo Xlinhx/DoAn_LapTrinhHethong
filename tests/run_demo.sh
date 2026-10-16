@@ -1,51 +1,63 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # tests/run_demo.sh
-# Chạy kịch bản demo chuẩn trên Ubuntu WSL2 và lưu kết quả vào thư mục evidence/
+# Kịch bản trình diễn (Demo) sử dụng cây fixture cô lập trên Linux filesystem (/tmp)
+# theo đúng 4 bước bảo vệ đồ án:
+#   Bước 1: So sánh liệt kê mặc định (./myls) với hiển thị tệp ẩn (./myls -a)
+#   Bước 2: Chạy ./myls -lS giải thích quyền hạn, kích thước và thứ tự giảm dần
+#   Bước 3: Chạy ./myls -alRS chứng minh duyệt thư mục ẩn nhưng chặn vòng lặp . / .. / symlink
+#   Bước 4: Minh họa xử lý đối số lỗi đi kèm đối số hợp lệ (báo lỗi stderr, trả mã thoát 2)
 # ==============================================================================
 
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MYLS_BIN="${PROJECT_ROOT}/myls"
-EVIDENCE_DIR="${PROJECT_ROOT}/evidence"
 
-mkdir -p "${EVIDENCE_DIR}"
+if [[ ! -x "${MYLS_BIN}" ]]; then
+    make -C "${PROJECT_ROOT}"
+fi
 
-DEMO_WS="$(mktemp -d /tmp/myls_demo_XXXXXX)"
-trap 'rm -rf "${DEMO_WS}"' EXIT
+export LC_ALL=C
+export TZ=UTC0
+unset LS_COLORS BLOCK_SIZE BLOCKSIZE POSIXLY_CORRECT QUOTING_STYLE TIME_STYLE || true
 
-# Tạo dữ liệu mẫu trực quan để chạy bộ lệnh demo
-mkdir -p "${DEMO_WS}/src_module" "${DEMO_WS}/docs_sub"
-printf "int main(void) { return 0; }\n" > "${DEMO_WS}/main_sample.c"
-dd if=/dev/zero of="${DEMO_WS}/dataset_large.bin" bs=1 count=8192 2>/dev/null
-dd if=/dev/zero of="${DEMO_WS}/config_medium.cfg" bs=1 count=1024 2>/dev/null
-printf "hidden_env=production\n" > "${DEMO_WS}/.env.hidden"
-printf "# Header doc\n" > "${DEMO_WS}/docs_sub/guide.md"
-dd if=/dev/zero of="${DEMO_WS}/src_module/engine.o" bs=1 count=4096 2>/dev/null
-ln -s "dataset_large.bin" "${DEMO_WS}/latest_data.lnk"
-chmod 0755 "${DEMO_WS}/main_sample.c"
+DEMO_DIR="$(mktemp -d /tmp/myls_demo_XXXXXX)"
+trap 'chmod -R u+rwx "${DEMO_DIR}" 2>/dev/null || true; rm -rf "${DEMO_DIR}"' EXIT
 
-DEMO_LOG="${EVIDENCE_DIR}/demo_session_output.txt"
+# Tạo cây dữ liệu mẫu nhỏ gọn, trực quan cho buổi bảo vệ
+mkdir -p "${DEMO_DIR}/src_module" "${DEMO_DIR}/.config_hidden"
+dd if=/dev/zero of="${DEMO_DIR}/database.bin" bs=1024 count=8 status=none
+dd if=/dev/zero of="${DEMO_DIR}/README.txt"   bs=512  count=1 status=none
+dd if=/dev/zero of="${DEMO_DIR}/notes.txt"    bs=512  count=1 status=none
+printf "env=production\n" > "${DEMO_DIR}/.env"
+printf "secret_key=42\n"  > "${DEMO_DIR}/.config_hidden/key.conf"
+printf "int main(void) { return 0; }\n" > "${DEMO_DIR}/src_module/main.c"
+chmod 4755 "${DEMO_DIR}/src_module/main.c"
+ln -s "src_module" "${DEMO_DIR}/link_to_src"
+ln -s ".."         "${DEMO_DIR}/src_module/loop_parent"
 
-{
-    echo "======================================================================"
-    echo "  DEMO THỰC TẾ TRÊN UBUNTU 24.04 WSL2 - ĐỀ TÀI 17 (myls -a -l -R -S)"
-    echo "  Kernel : $(uname -sr)"
-    echo "  GCC    : $(gcc --version | head -n 1)"
-    echo "======================================================================"
-    echo ""
+cd "${DEMO_DIR}" || exit 2
 
-    for cmd in "./myls" "./myls -a" "./myls -l" "./myls -R" "./myls -S" "./myls -alRS"; do
-        echo "$ ${cmd}"
-        echo "----------------------------------------------------------------------"
-        (
-            cd "${DEMO_WS}"
-            # Chạy thông qua binary đã biên dịch
-            eval "${cmd/#.\/myls/${MYLS_BIN}}"
-        )
-        echo ""
-    done
-} | tee "${DEMO_LOG}"
+echo "======================================================================"
+echo "  DEMO SCENARIO - VKU SYSTEM PROGRAMMING TOPIC 17 (myls -a -l -R -S)"
+echo "  Fixture Directory: ${DEMO_DIR}"
+echo "======================================================================"
+echo ""
+run_demo() {
+    local expected="$1" actual=0
+    shift
+    printf '$ ./myls%s\n' "${*:+ $*}"
+    "${MYLS_BIN}" "$@" 2>&1 || actual=$?
+    printf '%s\n\n' "-> Exit code: ${actual}"
+    if [[ "$actual" -ne "$expected" ]]; then
+        printf 'DEMO FAILED: expected exit %s, got %s\n' "$expected" "$actual" >&2
+        exit 1
+    fi
+}
 
-bash "${PROJECT_ROOT}/tests/run_tests.sh" | tee "${EVIDENCE_DIR}/test_suite_report.txt"
+run_demo 0
+run_demo 0 -a
+run_demo 0 -lS
+run_demo 0 -alRS
+run_demo 2 missing_path.txt src_module

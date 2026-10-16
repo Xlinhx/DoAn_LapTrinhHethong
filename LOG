@@ -1,15 +1,16 @@
-commit e233e03cc4e1c608ea857fac1b54e7156dda4e31 (HEAD -> main)
+commit 9d5ab427c51ff8db642fee6c5e5ebf03ea211cca (HEAD -> main, tag: v1.0.0-submission, origin/main)
 Author: Nguyễn Xuân Lĩnh <linhnxdeveloper@gmail.com>
 Date:   Fri Oct 16 01:04:35 2026 +0000
 
     docs(report): refine VKU report cover page layout to fit single page cleanly
 
+ LOG                         |  13 ++++++++++++-
  docs/BaoCao.docx            | Bin 2141741 -> 2141747 bytes
  docs/BaoCao.pdf             | Bin 818485 -> 792280 bytes
  scripts/build_vku_report.py |  21 +++++++++++----------
- 3 files changed, 11 insertions(+), 10 deletions(-)
+ 4 files changed, 23 insertions(+), 11 deletions(-)
 
-commit 6d99564b7c4f3f0eeebbf42d27de0d47ba9d9b33 (tag: v1.0.0-submission, origin/main)
+commit 6d99564b7c4f3f0eeebbf42d27de0d47ba9d9b33
 Author: Nguyễn Xuân Lĩnh <linhnxdeveloper@gmail.com>
 Date:   Thu Oct 15 19:01:55 2026 +0000
 

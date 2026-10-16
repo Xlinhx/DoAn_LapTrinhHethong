@@ -1,1 +1,68 @@
-ASAN_LSAN_ZERO_ERRORS_AND_ZERO_LEAKS
+======================================================================
+  THÔNG TIN MÔI TRƯỜNG & PHIÊN THỰC NGHIỆM (EXPERIMENTAL METADATA)
+======================================================================
+  Thời điểm ghi nhận (UTC) : 2026-10-16 05:52:04 UTC
+  Hệ điều hành             : Ubuntu 24.04.4 LTS
+  Nhân Linux (Kernel)      : Linux 6.18.33.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun 18 21:54:43 UTC 2026 x86_64
+  Trình biên dịch (C)      : gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+  Đối chuẩn tham chiếu     : ls (GNU coreutils) 9.4
+  Git Revision             : 9d5ab42 (modified (working tree has uncommitted changes))
+  Lệnh thực thi            : make sanitize
+  Mã thoát (Exit Code)     : 0
+======================================================================
+
+gcc -Wall -Wextra -Werror -pedantic -std=c11 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -Iinclude -O2 -g -fsanitize=address,undefined -fno-omit-frame-pointer -o myls_sanitize src/main.c src/options.c src/directory.c src/sorting.c src/display.c 
+======================================================================
+  VKU SYSTEM PROGRAMMING - TOPIC 17: AUTOMATED TEST SUITE
+  Target Binary : /tmp/myls_evidence_Jl42Nk/myls_sanitize
+  Fixture Root  : /tmp/myls_test_RkGpjB
+======================================================================
+  [PASS] Test 01: Flag combo 01/16: (none) default listing
+  [PASS] Test 02: Flag combo 02/16: -a (all entries)
+  [PASS] Test 03: Flag combo 03/16: -l (long format)
+  [PASS] Test 04: Flag combo 04/16: -R (recursive)
+  [PASS] Test 05: Flag combo 05/16: -S (size sort descending)
+  [PASS] Test 06: Flag combo 06/16: -al
+  [PASS] Test 07: Flag combo 07/16: -aR (with . / .. / loop symlink guard)
+  [PASS] Test 08: Flag combo 08/16: -aS
+  [PASS] Test 09: Flag combo 09/16: -lR
+  [PASS] Test 10: Flag combo 10/16: -lS (sparse 2.5GiB + tie-break)
+  [PASS] Test 11: Flag combo 11/16: -RS
+  [PASS] Test 12: Flag combo 12/16: -alR
+  [PASS] Test 13: Flag combo 13/16: -alS
+  [PASS] Test 14: Flag combo 14/16: -aRS
+  [PASS] Test 15: Flag combo 15/16: -lRS
+  [PASS] Test 16: Flag combo 16/16: -alRS (all four flags)
+  [PASS] Test 17: Separated and reordered flags (-S -R -l -a)
+  [PASS] Test 18: Empty directory with -l and -la
+  [PASS] Test 19: Directory > 64 entries (80 files capacity growth)
+  [PASS] Test 20: Filename starting with '-' using '--' separator
+  [PASS] Test 21: FIFO and Unix domain socket in -l
+  [PASS] Test 22: Symlink CLI operand without -l (follows to dir)
+  [PASS] Test 23: Symlink CLI operand with -l vs trailing slash
+  [PASS] Test 24: Broken symlink CLI operand without trailing slash
+  [PASS] Test 25: Character device /dev/null mixed with regular file
+  [PASS] Test 26: Multiple mixed CLI operands (files + directories)
+  [PASS] Test 27: Internal unit tests (block device major/minor, 1KiB rounding, overflow guard)
+  [PASS] Test 28: Non-existent CLI operand returns exit status 2 and stderr diagnostic
+  [PASS] Test 29: Broken symlink with trailing slash (broken_symlink/) returns exit status 2
+  [PASS] Test 30: Unreadable CLI directory operand returns exit status 2 and continues remaining operands
+  [PASS] Test 31: Unreadable subdirectory during -R returns exit status 1 and continues traversal
+  [PASS] Test 32: Mixed CLI error (2) + subdirectory error (1) preserves highest exit status 2
+  [PASS] Test 33: Invalid option (-z) rejected with exit status 2
+  [PASS] Test 34: Stdout write error (/dev/full) detected on flush with exit status 2
+  [PASS] Test 35: Fault injection: readdir() EIO handled cleanly with exit status 1
+  [PASS] Test 36: Fault injection: readlink() EIO retains entry metadata and returns exit status 1
+  [PASS] Test 37: Fault injection: closedir() EIO (exit 1) and realloc() ENOMEM (exit 2) handled safely
+----------------------------------------------------------------------
+  SUMMARY: 37 PASSED, 0 FAILED, 0 SKIPPED (TOTAL: 37)
+======================================================================
+
+----------------------------------------------------------------------
+  CHẨN ĐOÁN BỘ NHỚ & HÀNH VI BẤT ĐỊNH (SANITIZER DIAGNOSTICS)
+----------------------------------------------------------------------
+  Công cụ   : GCC AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), LeakSanitizer (LSan)
+  Cờ biên dịch: -fsanitize=address,undefined -fno-omit-frame-pointer -O2 -g
+  Phạm vi   : Chạy toàn bộ 37 kịch bản trong tests/run_tests.sh bằng binary ./myls_sanitize
+  Diagnostics: Không có cảnh báo hoặc lỗi phát sinh từ ASan/UBSan/LSan trên stderr.
+  Kết quả   : 37/37 đạt; 0 lỗi; 0 bỏ qua; mã thoát 0. Xem diagnostics và từng ca ở trên.

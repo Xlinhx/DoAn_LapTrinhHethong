@@ -1,0 +1,18 @@
+{
+  "mode": "draft",
+  "university_parent": "ĐẠI HỌC ĐÀ NẴNG",
+  "university_name": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ THÔNG TIN VÀ TRUYỀN THÔNG VIỆT - HÀN",
+  "faculty": null,
+  "course_name": "Lập trình Hệ thống (System Programming)",
+  "topic_code": "Đề tài 17",
+  "topic_title": "Implement ls with -a, -l, -R, -S",
+  "topic_title_vi": "Cài đặt lệnh ls với các tùy chọn -a, -l, -R, -S trên Linux",
+  "academic_term": null,
+  "instructor": null,
+  "location": "Đà Nẵng",
+  "year": "2026",
+  "repository_url": "https://github.com/Xlinhx/DoAn_LapTrinhHethong",
+  "group_name": null,
+  "members": [],
+  "task_allocation": []
+}
