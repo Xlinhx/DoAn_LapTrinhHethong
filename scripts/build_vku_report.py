@@ -221,6 +221,7 @@ def build_docx(out_docx: Path):
     # ==========================================================================
     p_uni = doc.add_paragraph()
     p_uni.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_uni.paragraph_format.space_after = Pt(8)
     r = p_uni.add_run(
         "ĐẠI HỌC ĐÀ NẴNG\n"
         "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ THÔNG TIN VÀ TRUYỀN THÔNG VIỆT - HÀN\n"
@@ -229,23 +230,22 @@ def build_docx(out_docx: Path):
     )
     r.bold = True
     r.font.name = "Times New Roman"
-    r.font.size = Pt(13)
+    r.font.size = Pt(12.5)
     r.font.color.rgb = RGBColor(0x1E, 0x3A, 0x8A)
-
-    doc.add_paragraph().paragraph_format.space_after = Pt(24)
 
     p_type = doc.add_paragraph()
     p_type.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_type.paragraph_format.space_before = Pt(6)
+    p_type.paragraph_format.space_after = Pt(6)
     rt = p_type.add_run("BÁO CÁO ĐỒ ÁN HỌC PHẦN\nLẬP TRÌNH HỆ THỐNG (SYSTEM PROGRAMMING)")
     rt.bold = True
     rt.font.name = "Times New Roman"
-    rt.font.size = Pt(16)
+    rt.font.size = Pt(15.5)
     rt.font.color.rgb = RGBColor(0x0F, 0x17, 0x2A)
-
-    doc.add_paragraph().paragraph_format.space_after = Pt(12)
 
     p_topic = doc.add_paragraph()
     p_topic.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_topic.paragraph_format.space_after = Pt(4)
     r_top = p_topic.add_run(
         "ĐỀ TÀI 17:\n"
         "NGHIÊN CỨU HỆ THỐNG TỆP LINUX VÀ TỰ CÀI ĐẶT LỆNH ls\n"
@@ -253,7 +253,7 @@ def build_docx(out_docx: Path):
     )
     r_top.bold = True
     r_top.font.name = "Times New Roman"
-    r_top.font.size = Pt(15)
+    r_top.font.size = Pt(14)
     r_top.font.color.rgb = RGBColor(0xB4, 0x53, 0x09)
 
     if (CUTOUTS_DIR / "hero_inode_tree.png").exists():
@@ -261,7 +261,7 @@ def build_docx(out_docx: Path):
             doc,
             CUTOUTS_DIR / "hero_inode_tree.png",
             "Mô hình kết nối giữa Cây thư mục (Dentry) và Siêu dữ liệu Inode trong Linux VFS",
-            width_inches=3.1,
+            width_inches=2.35,
         )
 
     meta_rows = [
@@ -271,11 +271,12 @@ def build_docx(out_docx: Path):
         ["Môi trường thực nghiệm:", "Ubuntu 24.04 LTS (WSL2 Kernel 6.18) · GCC 13.3.0 · GNU Make 4.3"],
         ["Kho mã nguồn GitHub:", "https://github.com/Xlinhx/DoAn_LapTrinhHethong"],
     ]
-    add_styled_table(doc, ["Thông tin Đồ án", "Chi tiết"], meta_rows, [5.5, 10.5])
+    add_styled_table(doc, ["Thông tin Đồ án", "Chi tiết"], meta_rows, [5.2, 10.8])
 
     p_year = doc.add_paragraph()
     p_year.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_year.paragraph_format.space_before = Pt(18)
+    p_year.paragraph_format.space_before = Pt(8)
+    p_year.paragraph_format.space_after = Pt(0)
     ry = p_year.add_run("Đà Nẵng – Năm 2026")
     ry.bold = True
     ry.font.name = "Times New Roman"
